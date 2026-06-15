@@ -157,8 +157,8 @@ contract VeriChainXAuthenticityAMM is ERC20, AccessControl, ReentrancyGuard, Pau
         _grantRole(ORACLE_ROLE, admin);
         _grantRole(LIQUIDITY_MANAGER_ROLE, admin);
 
-        authenticityVerifier = VeriChainXAuthenticityVerifier(_authenticityVerifier);
-        tokenFactory = VeriChainXTokenFactory(_tokenFactory);
+        authenticityVerifier = VeriChainXAuthenticityVerifier(payable(_authenticityVerifier));
+        tokenFactory = VeriChainXTokenFactory(payable(_tokenFactory));
         config = _config;
     }
 

@@ -142,7 +142,7 @@ contract VeriChainXDAOTreasury is AccessControl, ReentrancyGuard, Pausable {
     address public governanceContract;
     mapping(bytes32 => bool) public governanceApprovedProposals;
 
-    events:
+    // Events
     event AssetAdded(address indexed asset, string symbol, uint256 targetAllocation);
     event InvestmentMade(bytes32 indexed investmentId, address protocol, uint256 amount, uint256 expectedAPY);
     event YieldHarvested(bytes32 indexed investmentId, uint256 yieldAmount, address asset);

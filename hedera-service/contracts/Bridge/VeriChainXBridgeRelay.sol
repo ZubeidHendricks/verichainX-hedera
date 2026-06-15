@@ -5,7 +5,6 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import "./VeriChainXCrossChainBridge.sol";
 
 /**
@@ -15,7 +14,6 @@ import "./VeriChainXCrossChainBridge.sol";
  */
 contract VeriChainXBridgeRelay is AccessControl, ReentrancyGuard, Pausable {
     using ECDSA for bytes32;
-    using MessageHashUtils for bytes32;
 
     bytes32 public constant RELAY_ADMIN_ROLE = keccak256("RELAY_ADMIN_ROLE");
     bytes32 public constant ORACLE_ROLE = keccak256("ORACLE_ROLE");
@@ -156,7 +154,7 @@ contract VeriChainXBridgeRelay is AccessControl, ReentrancyGuard, Pausable {
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(RELAY_ADMIN_ROLE, admin);
         
-        bridge = VeriChainXCrossChainBridge(bridgeContract);
+        bridge = VeriChainXCrossChainBridge(payable(bridgeContract));
         _grantRole(BRIDGE_ROLE, bridgeContract);
     }
 

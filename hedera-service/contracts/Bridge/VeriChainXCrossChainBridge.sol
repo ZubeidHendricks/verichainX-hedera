@@ -8,7 +8,6 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import "../VeriChainXAuthenticityVerifier.sol";
 
 /**
@@ -19,7 +18,6 @@ import "../VeriChainXAuthenticityVerifier.sol";
 contract VeriChainXCrossChainBridge is AccessControl, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
     using ECDSA for bytes32;
-    using MessageHashUtils for bytes32;
 
     bytes32 public constant BRIDGE_ADMIN_ROLE = keccak256("BRIDGE_ADMIN_ROLE");
     bytes32 public constant VALIDATOR_ROLE = keccak256("VALIDATOR_ROLE");
@@ -177,7 +175,7 @@ contract VeriChainXCrossChainBridge is AccessControl, ReentrancyGuard, Pausable 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(BRIDGE_ADMIN_ROLE, admin);
         
-        authenticityVerifier = VeriChainXAuthenticityVerifier(_authenticityVerifier);
+        authenticityVerifier = VeriChainXAuthenticityVerifier(payable(_authenticityVerifier));
         currentChainId = _currentChainId;
         
         // Add current chain to supported chains

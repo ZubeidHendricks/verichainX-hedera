@@ -86,7 +86,7 @@ contract VeriChainXTokenFactory is AccessControl, Pausable {
         _grantRole(PAUSER_ROLE, admin);
         _grantRole(UPGRADER_ROLE, admin);
         
-        authenticityVerifier = VeriChainXAuthenticityVerifier(_authenticityVerifier);
+        authenticityVerifier = VeriChainXAuthenticityVerifier(payable(_authenticityVerifier));
         
         // Deploy reward token
         rewardToken = new VeriChainXRewardToken(admin);
@@ -505,7 +505,7 @@ contract VeriChainXCertificate is ERC721, ERC721URIStorage, ERC721Burnable, Acce
         return super.tokenURI(tokenId);
     }
 
-    function supportsInterface(bytes4 interfaceId) public view override(ERC721, AccessControl) returns (bool) {
+    function supportsInterface(bytes4 interfaceId) public view override(ERC721, ERC721URIStorage, AccessControl) returns (bool) {
         return super.supportsInterface(interfaceId);
     }
 }
