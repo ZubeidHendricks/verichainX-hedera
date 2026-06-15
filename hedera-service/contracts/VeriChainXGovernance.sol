@@ -88,8 +88,7 @@ contract VeriChainXGovernance is
     mapping(uint256 => VotingStrategy) public proposalVotingStrategy;
     mapping(address => DelegationInfo) public delegations;
     mapping(address => VoterInfo) public voterInfo;
-    mapping(uint256 => mapping(address => uint256)) public proposalVotingPower;
-    mapping(uint256 => uint256) public proposalVotingDeadlineExtensions;
+    mapping(uint256 => mapping(address => uint256)) internal proposalVotingPower;
 
     // Reputation and expertise tracking
     mapping(address => mapping(string => uint256)) public expertiseScores;
@@ -107,10 +106,8 @@ contract VeriChainXGovernance is
     mapping(uint256 => mapping(address => bool)) public proposalSignatures;
     mapping(uint256 => uint256) public signatureCount;
 
-    // Proposal incentives and rewards
-    uint256 public proposalReward = 100 * 10**18;  // 100 tokens
-    uint256 public votingReward = 10 * 10**18;     // 10 tokens
-    uint256 public expertBonusMultiplier = 150;    // 1.5x for experts
+    // Expert voting incentive (1.5x weight for verified experts)
+    uint256 public expertBonusMultiplier = 150;
 
     VeriChainXAuthenticityToken public immutable veriToken;
 
@@ -257,11 +254,6 @@ contract VeriChainXGovernance is
         proposer.totalProposalsCreated++;
         proposer.lastParticipationTime = block.timestamp;
 
-        // Reward proposal creation
-        if (proposalReward > 0) {
-            _distributeReward(msg.sender, proposalReward);
-        }
-
         emit ProposalCreatedWithMetadata(proposalId, msg.sender, category, title, description);
     }
 
@@ -309,13 +301,6 @@ contract VeriChainXGovernance is
 
         // Update voter reputation
         _updateVoterReputation(voter, proposalId, support);
-
-        // Distribute voting rewards
-        if (votingReward > 0) {
-            uint256 reward = voterData.isVerifiedExpert ? 
-                (votingReward * expertBonusMultiplier) / 100 : votingReward;
-            _distributeReward(voter, reward);
-        }
 
         emit VoteCastWithPower(
             proposalId, 
@@ -574,15 +559,6 @@ contract VeriChainXGovernance is
     }
 
     /**
-     * @dev Distribute rewards to voters and proposers
-     */
-    function _distributeReward(address recipient, uint256 amount) internal {
-        // Mint rewards from the authenticity token contract
-        // This would require the governance contract to have minting rights
-        // veriToken.mint(recipient, amount);
-    }
-
-    /**
      * @dev Add funds to treasury
      */
     function addToTreasury(uint256 amount) external onlyRole(ADMIN_ROLE) {
@@ -590,36 +566,10 @@ contract VeriChainXGovernance is
         treasuryBalance += amount;
     }
 
-    /**
-     * @dev Get comprehensive proposal information
-     */
-    function getProposalInfo(uint256 proposalId) external view returns (
-        ProposalMetadata memory metadata,
-        VotingStrategy memory strategy,
-        ProposalState currentState,
-        uint256 votesFor,
-        uint256 votesAgainst,
-        uint256 votesAbstain
-    ) {
-        metadata = proposalMetadata[proposalId];
-        strategy = proposalVotingStrategy[proposalId];
-        currentState = state(proposalId);
-        (votesAgainst, votesFor, votesAbstain) = proposalVotes(proposalId);
-    }
-
-    /**
-     * @dev Get voter information and reputation
-     */
-    function getVoterInfo(address voter) external view returns (VoterInfo memory) {
-        return voterInfo[voter];
-    }
-
-    /**
-     * @dev Get delegation information
-     */
-    function getDelegationInfo(address delegator) external view returns (DelegationInfo memory) {
-        return delegations[delegator];
-    }
+    // NOTE: per-proposal/voter/delegation data is exposed via the `public`
+    // mappings (proposalMetadata, proposalVotingStrategy, voterInfo, delegations)
+    // plus Governor's public state()/proposalVotes(). Dedicated struct getters were
+    // removed to keep the contract under the 24,576-byte EIP-170 deployment limit.
 
     /**
      * @dev Override required by multiple inheritance

@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Hardhat
+artifacts/
+cache/
+typechain/
+typechain-types/
+
+# Misc
+.env
+.env.local
+coverage/

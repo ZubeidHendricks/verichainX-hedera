@@ -7,13 +7,38 @@ dotenv.config();
 
 const config: HardhatUserConfig = {
   solidity: {
-    version: "0.8.19",
-    settings: {
-      optimizer: {
-        enabled: true,
-        runs: 200,
+    // NOTE: `overrides` is only honored in the multi-compiler form
+    // ({ compilers, overrides }); the { version, settings, overrides } shorthand
+    // silently drops overrides.
+    compilers: [
+      {
+        version: "0.8.19",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          },
+          viaIR: true,
+        },
       },
-      viaIR: true,
+    ],
+    // VeriChainXGovernance is feature-heavy and exceeds the 24,576-byte EIP-170
+    // limit at runs=200. Compile it for size (runs=1, strip revert strings) so it
+    // stays deployable; governance calls are infrequent, so the trade-off is fine.
+    overrides: {
+      "contracts/VeriChainXGovernance.sol": {
+        version: "0.8.19",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 1,
+          },
+          viaIR: true,
+          debug: {
+            revertStrings: "strip",
+          },
+        },
+      },
     },
   },
   networks: {
