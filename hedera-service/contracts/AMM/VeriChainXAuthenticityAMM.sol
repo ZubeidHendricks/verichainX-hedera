@@ -400,18 +400,17 @@ contract VeriChainXAuthenticityAMM is ERC20, AccessControl, ReentrancyGuard, Pau
         AuthenticityPool storage pool = pools[poolId];
         
         // Get verification data from the authenticity verifier
-        (
-            string memory productId,
-            uint256 score,
-            bytes32 evidenceHash,
-            string memory method,
-            string memory ruleId,
-            address verifier,
-            uint256 timestamp,
-            bool disputed
-        ) = authenticityVerifier.getVerification(verificationId);
+        VeriChainXAuthenticityVerifier.VerificationRecord memory record =
+            authenticityVerifier.getVerification(verificationId);
 
-        require(!disputed, "Cannot use disputed verification");
+        uint256 score = record.score;
+        address verifier = record.verifier;
+        uint256 timestamp = record.timestamp;
+
+        require(
+            record.status != VeriChainXAuthenticityVerifier.VerificationStatus.DISPUTED,
+            "Cannot use disputed verification"
+        );
         require(timestamp > 0, "Invalid verification");
 
         uint256 oldScore = pool.authenticityScore;

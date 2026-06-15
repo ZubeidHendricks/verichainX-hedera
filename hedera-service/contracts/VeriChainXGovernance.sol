@@ -266,26 +266,17 @@ contract VeriChainXGovernance is
     }
 
     /**
-     * @dev Enhanced voting with quadratic voting and delegation
+     * @dev Enhanced vote casting with quadratic voting, reputation and delegation.
+     * Overrides Governor._castVote so every vote entrypoint (castVote,
+     * castVoteWithReason, castVoteWithReasonAndParams, castVoteBySig) runs this logic.
      */
-    function castVoteWithReason(
+    function _castVote(
         uint256 proposalId,
-        uint8 support,
-        string calldata reason
-    ) public override returns (uint256) {
-        return _castVoteWithReasonAndParams(msg.sender, proposalId, support, reason, "");
-    }
-
-    /**
-     * @dev Internal vote casting with advanced features
-     */
-    function _castVoteWithReasonAndParams(
         address voter,
-        uint256 proposalId,
         uint8 support,
         string memory reason,
         bytes memory params
-    ) internal override onlyActiveProposal(proposalId) returns (uint256) {
+    ) internal override(Governor) onlyActiveProposal(proposalId) returns (uint256) {
         VotingStrategy memory strategy = proposalVotingStrategy[proposalId];
         
         // Get base voting power
@@ -335,7 +326,7 @@ contract VeriChainXGovernance is
             strategy.quadraticVoting
         );
 
-        return super._castVoteWithReasonAndParams(voter, proposalId, support, reason, params);
+        return super._castVote(proposalId, voter, support, reason, params);
     }
 
     /**
@@ -459,7 +450,7 @@ contract VeriChainXGovernance is
         uint256[] memory values,
         bytes[] memory calldatas,
         bytes32 descriptionHash
-    ) public payable override returns (uint256 proposalId) {
+    ) public payable override(Governor, IGovernor) returns (uint256 proposalId) {
         proposalId = hashProposal(targets, values, calldatas, descriptionHash);
         
         // Check multi-sig requirement for emergency proposals
@@ -647,6 +638,15 @@ contract VeriChainXGovernance is
 
     function proposalThreshold() public view override(Governor, GovernorSettings) returns (uint256) {
         return super.proposalThreshold();
+    }
+
+    function state(uint256 proposalId)
+        public
+        view
+        override(Governor, GovernorTimelockControl)
+        returns (ProposalState)
+    {
+        return super.state(proposalId);
     }
 
     function _execute(

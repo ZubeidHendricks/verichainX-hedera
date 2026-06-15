@@ -207,7 +207,6 @@ contract VeriChainXDAOTreasury is AccessControl, ReentrancyGuard, Pausable {
 
         // Initialize default yield strategies
         _addYieldStrategy(
-            "conservative_staking",
             "Conservative Staking",
             "Low-risk staking strategy",
             address(0), // To be set later

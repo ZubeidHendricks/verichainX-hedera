@@ -4,6 +4,7 @@ pragma solidity ^0.8.19;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
@@ -13,7 +14,7 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
  * @dev ERC20 token representing product authenticity value
  * Features dynamic supply based on verification quality and market demand
  */
-contract VeriChainXAuthenticityToken is ERC20, ERC20Burnable, ERC20Permit, AccessControl, Pausable {
+contract VeriChainXAuthenticityToken is ERC20, ERC20Burnable, ERC20Permit, ERC20Votes, AccessControl, Pausable {
     using Math for uint256;
 
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
@@ -473,6 +474,23 @@ contract VeriChainXAuthenticityToken is ERC20, ERC20Burnable, ERC20Permit, Acces
         uint256 amount
     ) internal override whenNotPaused {
         super._beforeTokenTransfer(from, to, amount);
+    }
+
+    // The following overrides are required by ERC20Votes (voting power checkpoints).
+    function _afterTokenTransfer(
+        address from,
+        address to,
+        uint256 amount
+    ) internal override(ERC20, ERC20Votes) {
+        super._afterTokenTransfer(from, to, amount);
+    }
+
+    function _mint(address to, uint256 amount) internal override(ERC20, ERC20Votes) {
+        super._mint(to, amount);
+    }
+
+    function _burn(address account, uint256 amount) internal override(ERC20, ERC20Votes) {
+        super._burn(account, amount);
     }
 
     /**
