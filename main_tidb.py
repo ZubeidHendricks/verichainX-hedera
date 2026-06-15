@@ -54,11 +54,14 @@ def custom_openapi():
 
 app.openapi = custom_openapi
 
-# CORS middleware for hackathon demo
+# CORS middleware. Origins are configurable via ALLOWED_ORIGINS (comma-separated);
+# defaults to "*" for the demo. Note: credentials cannot be combined with a
+# wildcard origin per the CORS spec, so we only allow credentials for explicit origins.
+_allowed_origins = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "*").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_allowed_origins,
+    allow_credentials="*" not in _allowed_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -66,19 +69,26 @@ app.add_middleware(
 # OpenAI configuration
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# TiDB Cloud connection configuration
+# TiDB Cloud connection configuration (credentials come from the environment).
+# Host/port/database have non-secret defaults; user and password must be supplied
+# via env vars (TIDB_USER / TIDB_PASSWORD) — never hardcode credentials in source.
 TIDB_CONFIG = {
-    'host': 'gateway01.us-west-2.prod.aws.tidbcloud.com',
-    'port': 4000,
-    'user': '3B7FbgPwaUgqzwY.root',
-    'password': '3qJdev49XjHvhl0v',
-    'database': 'verichainx',
+    'host': os.getenv('TIDB_HOST', 'gateway01.us-west-2.prod.aws.tidbcloud.com'),
+    'port': int(os.getenv('TIDB_PORT', '4000')),
+    'user': os.getenv('TIDB_USER', ''),
+    'password': os.getenv('TIDB_PASSWORD', ''),
+    'database': os.getenv('TIDB_DATABASE', 'verichainx'),
     'ssl': {'verify_mode': 'none'},
     'charset': 'utf8mb4'
 }
 
 def get_tidb_connection():
-    """Get TiDB Cloud connection"""
+    """Get TiDB Cloud connection. Requires TIDB_USER and TIDB_PASSWORD in the environment."""
+    if not TIDB_CONFIG['user'] or not TIDB_CONFIG['password']:
+        raise RuntimeError(
+            "TiDB credentials not configured. Set TIDB_USER and TIDB_PASSWORD "
+            "(and optionally TIDB_HOST/TIDB_PORT/TIDB_DATABASE) in the environment."
+        )
     return pymysql.connect(**TIDB_CONFIG)
 
 # Hedera AI Studio Integration

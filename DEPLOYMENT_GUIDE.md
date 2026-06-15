@@ -22,11 +22,11 @@
 ```env
 # In Railway dashboard > Environment tab, add these variables:
 
-# TiDB Cloud (Critical)
-TIDB_HOST=gateway01.us-west-2.prod.aws.tidbcloud.com
+# TiDB Cloud (Critical) — use the values from your own TiDB Cloud cluster
+TIDB_HOST=gateway01.<region>.prod.aws.tidbcloud.com
 TIDB_PORT=4000
-TIDB_USER=3B7FbgPwaUgqzwY.root
-TIDB_PASSWORD=3qJdev49XjHvhl0v
+TIDB_USER=<your-tidb-user>
+TIDB_PASSWORD=<your-tidb-password>
 TIDB_DATABASE=verichainx
 TIDB_SSL_MODE=REQUIRED
 

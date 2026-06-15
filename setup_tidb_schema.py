@@ -11,12 +11,19 @@ load_dotenv()
 def setup_tidb():
     """Set up TiDB database with VeriChainX schema"""
     
-    # Connection details from your TiDB Cloud
+    # Connection details from the environment (never hardcode credentials).
+    user = os.getenv('TIDB_USER')
+    password = os.getenv('TIDB_PASSWORD')
+    if not user or not password:
+        raise RuntimeError(
+            "TiDB credentials not configured. Set TIDB_USER and TIDB_PASSWORD "
+            "(and optionally TIDB_HOST/TIDB_PORT) in the environment."
+        )
     connection = pymysql.connect(
-        host='gateway01.us-west-2.prod.aws.tidbcloud.com',
-        port=4000,
-        user='3B7FbgPwaUgqzwY.root',
-        password='3qJdev49XjHvhl0v',
+        host=os.getenv('TIDB_HOST', 'gateway01.us-west-2.prod.aws.tidbcloud.com'),
+        port=int(os.getenv('TIDB_PORT', '4000')),
+        user=user,
+        password=password,
         database='test',  # Start with test database
         ssl={'verify_mode': 'none'},  # Required for TiDB Cloud Serverless
         charset='utf8mb4'
