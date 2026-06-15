@@ -3,11 +3,11 @@
  * Handles topic creation, message submission, and consensus operations
  */
 
-import { HederaAgentKit } from 'hedera-agent-kit';
+import { HederaAgentKit, createUnmigratedAgentKit } from './HederaAgentKit';
 import { ChatOpenAI } from '@langchain/openai';
 import { AgentExecutor, createToolCallingAgent } from 'langchain/agents';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
-import { Tool } from '@langchain/core/tools';
+import { DynamicTool } from '@langchain/core/tools';
 import { z } from 'zod';
 
 export interface HcsOperation {
@@ -21,17 +21,17 @@ export interface HcsOperation {
 }
 
 export class HcsAgent {
-  private agentKit: HederaAgentKit;
+  private agentKit: any;
   private llm: ChatOpenAI;
   private agentExecutor: AgentExecutor | null = null;
-  private tools: Tool[] = [];
+  private tools: DynamicTool[] = [];
 
   constructor(
     private accountId: string,
     private privateKey: string,
     private network: 'testnet' | 'mainnet' = 'testnet'
   ) {
-    this.agentKit = new HederaAgentKit({
+    this.agentKit = createUnmigratedAgentKit({
       accountId: this.accountId,
       privateKey: this.privateKey,
       network: this.network,
@@ -52,7 +52,7 @@ export class HcsAgent {
   private initializeHcsTools(): void {
     // Create Topic Tool
     this.tools.push(
-      new Tool({
+      new DynamicTool({
         name: 'create_hcs_topic',
         description: 'Create a new HCS topic for consensus messages. Input should be JSON with memo and optionally adminKey.',
         func: async (input: string) => {
@@ -78,7 +78,7 @@ export class HcsAgent {
 
     // Submit Message Tool
     this.tools.push(
-      new Tool({
+      new DynamicTool({
         name: 'submit_hcs_message',
         description: 'Submit a message to an existing HCS topic. Input should be JSON with topicId and message.',
         func: async (input: string) => {
@@ -106,7 +106,7 @@ export class HcsAgent {
 
     // Get Topic Info Tool
     this.tools.push(
-      new Tool({
+      new DynamicTool({
         name: 'get_topic_info',
         description: 'Get information about an HCS topic. Input should be the topicId as a string.',
         func: async (topicId: string) => {
@@ -130,7 +130,7 @@ export class HcsAgent {
 
     // Subscribe to Topic Tool (for monitoring)
     this.tools.push(
-      new Tool({
+      new DynamicTool({
         name: 'subscribe_to_topic',
         description: 'Subscribe to HCS topic messages. Input should be JSON with topicId and optional startTime.',
         func: async (input: string) => {
@@ -187,14 +187,14 @@ export class HcsAgent {
     ]);
 
     const agent = await createToolCallingAgent({
-      llm: this.llm,
-      tools: this.tools,
-      prompt,
+      llm: this.llm as any,
+      tools: this.tools as any,
+      prompt: prompt as any,
     });
 
     this.agentExecutor = new AgentExecutor({
       agent,
-      tools: this.tools,
+      tools: this.tools as any,
       verbose: true,
       maxIterations: 3,
     });

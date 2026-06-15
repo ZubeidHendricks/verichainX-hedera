@@ -775,7 +775,7 @@ export class AMMAgent {
         targetSpread: number,
         riskLevel: string
     ): any {
-        const riskParams = this.ammConfig.riskParameters[riskLevel];
+        const riskParams = (this.ammConfig.riskParameters as Record<string, any>)[riskLevel];
         const authenticityMultiplier = this.getAuthenticityMultiplier(pool.authenticityScore);
 
         return {

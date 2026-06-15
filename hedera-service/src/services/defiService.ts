@@ -291,7 +291,7 @@ export class DeFiService {
         const receipt = await tx.wait();
         
         // Extract pool ID from event logs
-        const poolCreatedEvent = receipt.events?.find(e => e.event === 'PoolCreated');
+        const poolCreatedEvent = receipt.events?.find((e: any) => e.event === 'PoolCreated');
         const poolId = poolCreatedEvent?.args?.poolId;
 
         this.operationHistory.set(operationId, {
@@ -331,7 +331,7 @@ export class DeFiService {
         );
 
         const receipt = await tx.wait();
-        const liquidityEvent = receipt.events?.find(e => e.event === 'LiquidityAdded');
+        const liquidityEvent = receipt.events?.find((e: any) => e.event === 'LiquidityAdded');
 
         return {
             success: true,
@@ -365,7 +365,7 @@ export class DeFiService {
         );
 
         const receipt = await tx.wait();
-        const swapEvent = receipt.events?.find(e => e.event === 'TokensSwapped');
+        const swapEvent = receipt.events?.find((e: any) => e.event === 'TokensSwapped');
 
         return {
             success: true,
@@ -431,7 +431,7 @@ export class DeFiService {
         const tx = await contract.stake(params.poolId, params.amount);
         const receipt = await tx.wait();
 
-        const stakeEvent = receipt.events?.find(e => e.event === 'Staked');
+        const stakeEvent = receipt.events?.find((e: any) => e.event === 'Staked');
 
         return {
             success: true,
@@ -454,7 +454,7 @@ export class DeFiService {
         const tx = await contract.claimRewards(params.poolId);
         const receipt = await tx.wait();
 
-        const rewardEvent = receipt.events?.find(e => e.event === 'RewardsClaimed');
+        const rewardEvent = receipt.events?.find((e: any) => e.event === 'RewardsClaimed');
 
         return {
             success: true,

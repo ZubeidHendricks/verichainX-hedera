@@ -83,6 +83,28 @@ export class SmartContractService {
     }
 
     /**
+     * Get the JSON-RPC provider for a network.
+     */
+    async getProvider(networkName: string): Promise<providers.Provider> {
+        const provider = this.providers.get(networkName);
+        if (!provider) {
+            throw new Error(`Provider not initialized for network: ${networkName}`);
+        }
+        return provider;
+    }
+
+    /**
+     * Get the signer (wallet) for a network.
+     */
+    async getSigner(networkName: string): Promise<Wallet> {
+        const signer = this.signers.get(networkName);
+        if (!signer) {
+            throw new Error(`Signer not initialized for network: ${networkName}`);
+        }
+        return signer;
+    }
+
+    /**
      * Initialize smart contract service with network configurations
      */
     async initialize(deploymentConfigs: DeploymentConfig[]): Promise<void> {

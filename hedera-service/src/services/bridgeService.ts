@@ -10,7 +10,7 @@ import { RedisService } from './redisService';
 import { Logger } from '../utils/logger';
 
 export interface BridgeOperationRequest {
-    operation: 'transfer' | 'sync_verification' | 'add_chain' | 'add_validator' | 'confirm_transfer' | 'refund_transfer' | 'get_bridge_state';
+    operation: 'transfer' | 'sync_verification' | 'add_chain' | 'add_validator' | 'confirm_transfer' | 'refund_transfer' | 'get_bridge_state' | 'emergency_pause';
     networkName: string;
     parameters: any;
     options?: {
@@ -184,7 +184,10 @@ export class BridgeService {
                 
                 case 'get_bridge_state':
                     return await this.getBridgeState(request, operationId);
-                
+
+                case 'emergency_pause':
+                    return await this.emergencyPauseBridge(request, operationId);
+
                 default:
                     throw new Error(`Unknown bridge operation: ${request.operation}`);
             }
@@ -238,7 +241,7 @@ export class BridgeService {
         );
 
         const receipt = await tx.wait();
-        const transferEvent = receipt.events?.find(e => e.event === 'TransferInitiated');
+        const transferEvent = receipt.events?.find((e: any) => e.event === 'TransferInitiated');
         const transferId = transferEvent?.args?.transferId;
 
         // Store operation history
@@ -393,7 +396,7 @@ export class BridgeService {
         });
 
         const receipt = await tx.wait();
-        const confirmEvent = receipt.events?.find(e => e.event === 'TransferConfirmed');
+        const confirmEvent = receipt.events?.find((e: any) => e.event === 'TransferConfirmed');
 
         return {
             success: true,
@@ -456,6 +459,37 @@ export class BridgeService {
                 totalVolume: bridgeState.totalVolume.toString(),
                 synchronized: bridgeState.synchronized,
                 lastUpdateTime: bridgeState.lastUpdateTime.toNumber()
+            }
+        };
+    }
+
+    /**
+     * Pause bridge operations in an emergency.
+     */
+    private async emergencyPauseBridge(
+        request: BridgeOperationRequest,
+        operationId: string
+    ): Promise<BridgeOperationResponse> {
+        const contract = await this.getBridgeContract(request.networkName);
+        const reason = request.parameters?.reason || 'Emergency pause requested';
+
+        const tx = await contract.emergencyPause(reason);
+        const receipt = await tx.wait();
+
+        this.logger.warn('Bridge emergency pause executed', {
+            operationId,
+            networkName: request.networkName,
+            reason,
+            transactionHash: receipt.transactionHash
+        });
+
+        return {
+            success: true,
+            operationId,
+            result: {
+                paused: true,
+                reason,
+                transactionHash: receipt.transactionHash
             }
         };
     }

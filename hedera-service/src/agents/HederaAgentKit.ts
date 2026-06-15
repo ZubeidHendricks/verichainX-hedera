@@ -3,11 +3,30 @@
  * Provides natural language interface for Hedera blockchain operations
  */
 
-import { HederaAgentKit } from 'hedera-agent-kit';
+// NOTE: hedera-agent-kit v3.x redesigned its API (HederaLangchainToolkit + plugins).
+// These agents target the legacy HederaAgentKit class API and are pending migration to v3.
+// Shimmed so the service compiles and runs; the natural-language agent path throws a clear
+// error at runtime until migrated.
 import { ChatOpenAI } from '@langchain/openai';
 import { AgentExecutor, createToolCallingAgent } from 'langchain/agents';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
-import { Tool } from '@langchain/core/tools';
+import { DynamicTool } from '@langchain/core/tools';
+
+/** Legacy agent-kit client type, re-exported for dependent agents until the v3 migration lands. */
+export type HederaAgentKit = any;
+
+/** Placeholder for the legacy agent-kit client; surfaces a clear error if invoked pre-migration. */
+export const createUnmigratedAgentKit = (..._args: any[]): any =>
+  new Proxy(
+    {},
+    {
+      get(_target, prop) {
+        throw new Error(
+          `hedera-agent-kit v3 migration pending: '${String(prop)}' is not wired to the new toolkit API yet.`
+        );
+      },
+    }
+  );
 import { z } from 'zod';
 import dotenv from 'dotenv';
 
@@ -29,14 +48,14 @@ export interface TransactionResult {
 }
 
 export class HederaLangChainAgent {
-  private agentKit: HederaAgentKit;
+  private agentKit: any;
   private llm: ChatOpenAI;
   private agentExecutor: AgentExecutor | null = null;
-  private tools: Tool[] = [];
+  private tools: DynamicTool[] = [];
 
   constructor(private config: HederaAgentConfig) {
-    // Initialize Hedera Agent Kit
-    this.agentKit = new HederaAgentKit({
+    // Initialize Hedera Agent Kit (legacy API — stubbed pending v3 migration)
+    this.agentKit = createUnmigratedAgentKit({
       accountId: config.accountId,
       privateKey: config.privateKey,
       network: config.network,
@@ -58,7 +77,7 @@ export class HederaLangChainAgent {
   private initializeTools(): void {
     // HCS (Hedera Consensus Service) Tools
     this.tools.push(
-      new Tool({
+      new DynamicTool({
         name: 'create_topic',
         description: 'Create a new HCS topic for consensus messages. Input should be a topic memo/description.',
         func: async (memo: string) => {
@@ -80,7 +99,7 @@ export class HederaLangChainAgent {
     );
 
     this.tools.push(
-      new Tool({
+      new DynamicTool({
         name: 'submit_message_to_topic',
         description: 'Submit a message to an HCS topic. Input should be JSON with topicId and message.',
         func: async (input: string) => {
@@ -104,7 +123,7 @@ export class HederaLangChainAgent {
 
     // HTS (Hedera Token Service) Tools
     this.tools.push(
-      new Tool({
+      new DynamicTool({
         name: 'create_token',
         description: 'Create a new HTS token. Input should be JSON with name, symbol, decimals, and initialSupply.',
         func: async (input: string) => {
@@ -127,7 +146,7 @@ export class HederaLangChainAgent {
     );
 
     this.tools.push(
-      new Tool({
+      new DynamicTool({
         name: 'mint_token',
         description: 'Mint additional tokens. Input should be JSON with tokenId and amount.',
         func: async (input: string) => {
@@ -150,7 +169,7 @@ export class HederaLangChainAgent {
     );
 
     this.tools.push(
-      new Tool({
+      new DynamicTool({
         name: 'transfer_token',
         description: 'Transfer tokens between accounts. Input should be JSON with tokenId, toAccountId, and amount.',
         func: async (input: string) => {
@@ -174,7 +193,7 @@ export class HederaLangChainAgent {
 
     // Account and Balance Tools
     this.tools.push(
-      new Tool({
+      new DynamicTool({
         name: 'get_account_balance',
         description: 'Get account balance for HBAR and tokens. Input should be accountId.',
         func: async (accountId: string) => {
@@ -197,7 +216,7 @@ export class HederaLangChainAgent {
     );
 
     this.tools.push(
-      new Tool({
+      new DynamicTool({
         name: 'transfer_hbar',
         description: 'Transfer HBAR between accounts. Input should be JSON with toAccountId and amount.',
         func: async (input: string) => {
@@ -246,14 +265,14 @@ export class HederaLangChainAgent {
     ]);
 
     const agent = await createToolCallingAgent({
-      llm: this.llm,
-      tools: this.tools,
-      prompt,
+      llm: this.llm as any,
+      tools: this.tools as any,
+      prompt: prompt as any,
     });
 
     this.agentExecutor = new AgentExecutor({
       agent,
-      tools: this.tools,
+      tools: this.tools as any,
       verbose: true,
       maxIterations: 3,
     });

@@ -1,4 +1,4 @@
-import { Client, AccountId, PrivateKey } from '@hashgraph/sdk';
+import { Client, AccountId, PrivateKey, AccountBalanceQuery } from '@hashgraph/sdk';
 
 let hederaClient: Client;
 
@@ -52,7 +52,9 @@ export async function checkHederaConnection(): Promise<boolean> {
     }
 
     // Simple balance query to test connection
-    const balance = await client.getCostQuery().execute(client);
+    await new AccountBalanceQuery()
+      .setAccountId(AccountId.fromString(accountId))
+      .execute(client);
     return true;
   } catch (error) {
     console.error('Hedera connection check failed:', error);

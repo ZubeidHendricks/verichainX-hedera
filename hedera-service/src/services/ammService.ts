@@ -231,7 +231,7 @@ export class AMMService {
         );
 
         const receipt = await tx.wait();
-        const poolCreatedEvent = receipt.events?.find(e => e.event === 'AuthenticityPoolCreated');
+        const poolCreatedEvent = receipt.events?.find((e: any) => e.event === 'AuthenticityPoolCreated');
         const poolId = poolCreatedEvent?.args?.poolId;
 
         this.operationHistory.set(operationId, {
@@ -283,7 +283,7 @@ export class AMMService {
         );
 
         const receipt = await tx.wait();
-        const liquidityEvent = receipt.events?.find(e => e.event === 'LiquidityAdded');
+        const liquidityEvent = receipt.events?.find((e: any) => e.event === 'LiquidityAdded');
 
         // Get pool info for authenticity score
         const poolInfo = await contract.getPoolInfo(poolId);
@@ -331,7 +331,7 @@ export class AMMService {
         );
 
         const receipt = await tx.wait();
-        const liquidityEvent = receipt.events?.find(e => e.event === 'LiquidityRemoved');
+        const liquidityEvent = receipt.events?.find((e: any) => e.event === 'LiquidityRemoved');
 
         return {
             success: true,
@@ -387,7 +387,7 @@ export class AMMService {
         );
 
         const receipt = await tx.wait();
-        const swapEvent = receipt.events?.find(e => e.event === 'AuthenticitySwap');
+        const swapEvent = receipt.events?.find((e: any) => e.event === 'AuthenticitySwap');
 
         return {
             success: true,
@@ -418,7 +418,7 @@ export class AMMService {
         const tx = await contract.stake(amount, { gasLimit: request.options?.gasLimit });
         const receipt = await tx.wait();
 
-        const stakeEvent = receipt.events?.find(e => e.event === 'TokensStaked');
+        const stakeEvent = receipt.events?.find((e: any) => e.event === 'TokensStaked');
 
         return {
             success: true,
@@ -464,7 +464,7 @@ export class AMMService {
         }
 
         const receipt = await tx.wait();
-        const rewardEvent = receipt.events?.find(e => e.event === 'RewardsDistributed' || e.event === 'RewardsClaimed');
+        const rewardEvent = receipt.events?.find((e: any) => e.event === 'RewardsDistributed' || e.event === 'RewardsClaimed');
 
         return {
             success: true,
@@ -506,7 +506,7 @@ export class AMMService {
         );
 
         const receipt = await tx.wait();
-        const mintEvent = receipt.events?.find(e => e.event === 'TokensMinted');
+        const mintEvent = receipt.events?.find((e: any) => e.event === 'TokensMinted');
 
         return {
             success: true,
@@ -543,7 +543,7 @@ export class AMMService {
         );
 
         const receipt = await tx.wait();
-        const burnEvent = receipt.events?.find(e => e.event === 'TokensBurned');
+        const burnEvent = receipt.events?.find((e: any) => e.event === 'TokensBurned');
 
         return {
             success: true,

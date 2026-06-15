@@ -3,11 +3,11 @@
  * Handles token creation, minting, transfers, and NFT operations
  */
 
-import { HederaAgentKit } from 'hedera-agent-kit';
+import { HederaAgentKit, createUnmigratedAgentKit } from './HederaAgentKit';
 import { ChatOpenAI } from '@langchain/openai';
 import { AgentExecutor, createToolCallingAgent } from 'langchain/agents';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
-import { Tool } from '@langchain/core/tools';
+import { DynamicTool } from '@langchain/core/tools';
 import { z } from 'zod';
 
 export interface HtsOperation {
@@ -22,17 +22,17 @@ export interface HtsOperation {
 }
 
 export class HtsAgent {
-  private agentKit: HederaAgentKit;
+  private agentKit: any;
   private llm: ChatOpenAI;
   private agentExecutor: AgentExecutor | null = null;
-  private tools: Tool[] = [];
+  private tools: DynamicTool[] = [];
 
   constructor(
     private accountId: string,
     private privateKey: string,
     private network: 'testnet' | 'mainnet' = 'testnet'
   ) {
-    this.agentKit = new HederaAgentKit({
+    this.agentKit = createUnmigratedAgentKit({
       accountId: this.accountId,
       privateKey: this.privateKey,
       network: this.network,
@@ -53,7 +53,7 @@ export class HtsAgent {
   private initializeHtsTools(): void {
     // Create Fungible Token Tool
     this.tools.push(
-      new Tool({
+      new DynamicTool({
         name: 'create_fungible_token',
         description: 'Create a new fungible token. Input should be JSON with name, symbol, decimals, and initialSupply.',
         func: async (input: string) => {
@@ -79,7 +79,7 @@ export class HtsAgent {
 
     // Create NFT Token Tool
     this.tools.push(
-      new Tool({
+      new DynamicTool({
         name: 'create_nft_token',
         description: 'Create a new NFT collection. Input should be JSON with name and symbol.',
         func: async (input: string) => {
@@ -106,7 +106,7 @@ export class HtsAgent {
 
     // Mint Token Tool
     this.tools.push(
-      new Tool({
+      new DynamicTool({
         name: 'mint_tokens',
         description: 'Mint additional tokens or NFTs. Input should be JSON with tokenId and amount (or metadata for NFTs).',
         func: async (input: string) => {
@@ -144,7 +144,7 @@ export class HtsAgent {
 
     // Transfer Token Tool
     this.tools.push(
-      new Tool({
+      new DynamicTool({
         name: 'transfer_tokens',
         description: 'Transfer tokens between accounts. Input should be JSON with tokenId, toAccountId, amount, and optionally serialNumber for NFTs.',
         func: async (input: string) => {
@@ -183,7 +183,7 @@ export class HtsAgent {
 
     // Transfer HBAR Tool
     this.tools.push(
-      new Tool({
+      new DynamicTool({
         name: 'transfer_hbar',
         description: 'Transfer HBAR between accounts. Input should be JSON with toAccountId and amount.',
         func: async (input: string) => {
@@ -209,7 +209,7 @@ export class HtsAgent {
 
     // Get Token Balance Tool
     this.tools.push(
-      new Tool({
+      new DynamicTool({
         name: 'get_token_balance',
         description: 'Get token balance for an account. Input should be JSON with accountId and optionally tokenId.',
         func: async (input: string) => {
@@ -247,7 +247,7 @@ export class HtsAgent {
 
     // Get Token Info Tool
     this.tools.push(
-      new Tool({
+      new DynamicTool({
         name: 'get_token_info',
         description: 'Get detailed information about a token. Input should be the tokenId as a string.',
         func: async (tokenId: string) => {
@@ -303,14 +303,14 @@ export class HtsAgent {
     ]);
 
     const agent = await createToolCallingAgent({
-      llm: this.llm,
-      tools: this.tools,
-      prompt,
+      llm: this.llm as any,
+      tools: this.tools as any,
+      prompt: prompt as any,
     });
 
     this.agentExecutor = new AgentExecutor({
       agent,
-      tools: this.tools,
+      tools: this.tools as any,
       verbose: true,
       maxIterations: 3,
     });

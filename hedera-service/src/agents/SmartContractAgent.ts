@@ -377,7 +377,7 @@ export class SmartContractAgent {
 
             // Build deployment plan
             for (const contractName of contracts) {
-                const dependencies = contractDependencies[contractName] || [];
+                const dependencies = (contractDependencies as Record<string, string[]>)[contractName] || [];
                 const constructorArgs = this.getDeploymentParameters(contractName, targetNetwork).constructorArgs;
 
                 plan.contracts.push({
@@ -395,7 +395,7 @@ export class SmartContractAgent {
             plan.deploymentOrder = this.sortByDependencies(plan.contracts);
 
             // Calculate estimated fee
-            const networkConfig = this.networkConfigs[targetNetwork];
+            const networkConfig = (this.networkConfigs as Record<string, any>)[targetNetwork];
             if (networkConfig) {
                 const gasPriceWei = parseInt(networkConfig.gasPrice);
                 const totalCostWei = plan.estimatedCost.totalGas * gasPriceWei;
@@ -520,7 +520,7 @@ export class SmartContractAgent {
             'VeriChainXTokenFactory': 4200000
         };
 
-        return gasEstimates[contractName] || 2000000;
+        return (gasEstimates as Record<string, number>)[contractName] || 2000000;
     }
 
     /**
@@ -712,6 +712,6 @@ export class SmartContractAgent {
      * Get network configuration
      */
     getNetworkConfig(networkName: string): any {
-        return this.networkConfigs[networkName] || null;
+        return (this.networkConfigs as Record<string, any>)[networkName] || null;
     }
 }
