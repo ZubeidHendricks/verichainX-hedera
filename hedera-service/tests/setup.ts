@@ -31,9 +31,8 @@ jest.mock('../src/config/redis', () => ({
 jest.mock('../src/config/hedera', () => ({
   initializeHedera: jest.fn().mockResolvedValue(undefined),
   getHederaClient: jest.fn().mockReturnValue({
-    getCostQuery: jest.fn().mockReturnValue({
-      execute: jest.fn().mockResolvedValue({}),
-    }),
+    // Minimal stub; Hedera SDK queries are mocked per-test where needed.
+    execute: jest.fn().mockResolvedValue({}),
   }),
   checkHederaConnection: jest.fn().mockResolvedValue(true),
 }));

@@ -35,13 +35,13 @@ describe('MessageHandler', () => {
         subscribe: mockSubscribe,
       });
 
-      // Start listening first time
+      // Start listening first time — subscribes to the 3 command channels
       await messageHandler.startListening();
-      expect(mockSubscribe).toHaveBeenCalledTimes(1);
+      expect(mockSubscribe).toHaveBeenCalledTimes(3);
 
-      // Try to start again
+      // Try to start again — guarded by isListening, so no new subscriptions
       await messageHandler.startListening();
-      expect(mockSubscribe).toHaveBeenCalledTimes(1); // Should not be called again
+      expect(mockSubscribe).toHaveBeenCalledTimes(3); // Should not subscribe again
     });
   });
 

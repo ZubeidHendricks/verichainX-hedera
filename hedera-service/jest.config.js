@@ -6,6 +6,12 @@ module.exports = {
     '**/__tests__/**/*.ts',
     '**/?(*.)+(spec|test).ts'
   ],
+  // Solidity contract tests use the Hardhat/Waffle runtime (hardhat ethers,
+  // revertedWith, typechain) and run via `npx hardhat test`, not jest.
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '/tests/VeriChainXGovernance.test.ts'
+  ],
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/**/*.d.ts',
@@ -14,7 +20,7 @@ module.exports = {
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
   setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
-  moduleNameMapping: {
+  moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1'
   },
   testTimeout: 10000

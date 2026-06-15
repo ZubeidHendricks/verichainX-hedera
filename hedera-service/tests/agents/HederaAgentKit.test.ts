@@ -117,7 +117,7 @@ describe('HederaLangChainAgent', () => {
 
   describe('error handling', () => {
     it('should handle missing OpenAI API key', () => {
-      const configWithoutKey = { ...mockConfig };
+      const configWithoutKey: any = { ...mockConfig };
       delete configWithoutKey.openaiApiKey;
       
       // Should use environment variable fallback

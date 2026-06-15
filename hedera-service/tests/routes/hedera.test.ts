@@ -4,6 +4,21 @@
 
 import request from 'supertest';
 import express from 'express';
+
+// Mock the Hedera test helpers so route tests don't need a live Hedera node.
+jest.mock('../../src/utils/hederaTest', () => ({
+  testHederaConnection: jest.fn().mockResolvedValue({
+    success: true,
+    account_id: '0.0.123456',
+    balance: '100 ℏ',
+    network: 'testnet',
+  }),
+  createTestTransaction: jest.fn().mockResolvedValue({
+    success: true,
+    transaction_id: 'mock-transaction-id-for-testing',
+  }),
+}));
+
 import { hederaRoutes } from '../../src/routes/hedera';
 
 describe('Hedera Routes', () => {
