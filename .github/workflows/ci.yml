@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend (build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run build
+
+  hedera-service:
+    name: Hedera service (build + test + contracts)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: hedera-service
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: hedera-service/package-lock.json
+      - run: npm ci
+      - name: TypeScript build
+        run: npm run build
+      - name: Unit tests
+        run: npm test
+      - name: Compile contracts
+        run: npm run compile-contracts
+
+  backend:
+    name: Python backend (import smoke)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - name: Import smoke test (app loads without live credentials)
+        run: python -c "import main_tidb; assert main_tidb.app is not None; print('main_tidb app OK')"
