@@ -1,13 +1,18 @@
 /**
  * HCS (Hedera Consensus Service) Specialized Agent
- * Handles topic creation, message submission, and consensus operations
+ *
+ * Performs HCS operations programmatically against the Hedera network using the
+ * official @hashgraph/sdk. These are deterministic blockchain calls (no LLM) —
+ * the natural-language path lives in HederaLangChainAgent (HederaAgentKit.ts).
  */
 
-import { HederaAgentKit, createUnmigratedAgentKit } from './HederaAgentKit';
-import { ChatOpenAI } from '@langchain/openai';
-import { AgentExecutor, createToolCallingAgent } from 'langchain/agents';
-import { ChatPromptTemplate } from '@langchain/core/prompts';
-import { DynamicTool } from '@langchain/core/tools';
+import {
+  Client,
+  PrivateKey,
+  TopicCreateTransaction,
+  TopicMessageSubmitTransaction,
+  TopicInfoQuery,
+} from '@hashgraph/sdk';
 import { z } from 'zod';
 
 export interface HcsOperation {
@@ -21,276 +26,141 @@ export interface HcsOperation {
 }
 
 export class HcsAgent {
-  private agentKit: any;
-  private llm: ChatOpenAI;
-  private agentExecutor: AgentExecutor | null = null;
-  private tools: DynamicTool[] = [];
+  private client: Client | null = null;
 
   constructor(
     private accountId: string,
     private privateKey: string,
     private network: 'testnet' | 'mainnet' = 'testnet'
-  ) {
-    this.agentKit = createUnmigratedAgentKit({
-      accountId: this.accountId,
-      privateKey: this.privateKey,
-      network: this.network,
-    });
-
-    this.llm = new ChatOpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-      model: 'gpt-4o-mini',
-      temperature: 0.1,
-    });
-
-    this.initializeHcsTools();
-  }
+  ) {}
 
   /**
-   * Initialize HCS-specific tools
-   */
-  private initializeHcsTools(): void {
-    // Create Topic Tool
-    this.tools.push(
-      new DynamicTool({
-        name: 'create_hcs_topic',
-        description: 'Create a new HCS topic for consensus messages. Input should be JSON with memo and optionally adminKey.',
-        func: async (input: string) => {
-          try {
-            const { memo, adminKey } = JSON.parse(input);
-            const result = await this.agentKit.createTopic(memo, adminKey);
-            return JSON.stringify({
-              success: true,
-              topicId: result.topicId,
-              transactionId: result.transactionId,
-              message: `Successfully created HCS topic ${result.topicId}`,
-              memo: memo,
-            });
-          } catch (error) {
-            return JSON.stringify({
-              success: false,
-              error: error.message,
-            });
-          }
-        },
-      })
-    );
-
-    // Submit Message Tool
-    this.tools.push(
-      new DynamicTool({
-        name: 'submit_hcs_message',
-        description: 'Submit a message to an existing HCS topic. Input should be JSON with topicId and message.',
-        func: async (input: string) => {
-          try {
-            const { topicId, message } = JSON.parse(input);
-            const result = await this.agentKit.submitMessageToTopic(topicId, message);
-            return JSON.stringify({
-              success: true,
-              topicId: topicId,
-              transactionId: result.transactionId,
-              sequenceNumber: result.sequenceNumber,
-              consensusTimestamp: result.consensusTimestamp,
-              message: `Message submitted to topic ${topicId}`,
-              submittedMessage: message,
-            });
-          } catch (error) {
-            return JSON.stringify({
-              success: false,
-              error: error.message,
-            });
-          }
-        },
-      })
-    );
-
-    // Get Topic Info Tool
-    this.tools.push(
-      new DynamicTool({
-        name: 'get_topic_info',
-        description: 'Get information about an HCS topic. Input should be the topicId as a string.',
-        func: async (topicId: string) => {
-          try {
-            const info = await this.agentKit.getTopicInfo(topicId.trim());
-            return JSON.stringify({
-              success: true,
-              topicId: topicId,
-              topicInfo: info,
-              message: `Retrieved info for topic ${topicId}`,
-            });
-          } catch (error) {
-            return JSON.stringify({
-              success: false,
-              error: error.message,
-            });
-          }
-        },
-      })
-    );
-
-    // Subscribe to Topic Tool (for monitoring)
-    this.tools.push(
-      new DynamicTool({
-        name: 'subscribe_to_topic',
-        description: 'Subscribe to HCS topic messages. Input should be JSON with topicId and optional startTime.',
-        func: async (input: string) => {
-          try {
-            const { topicId, startTime } = JSON.parse(input);
-            // Note: In a real implementation, this would set up a subscription
-            // For now, we'll return subscription details
-            return JSON.stringify({
-              success: true,
-              topicId: topicId,
-              subscriptionStatus: 'active',
-              startTime: startTime || new Date().toISOString(),
-              message: `Subscribed to topic ${topicId} messages`,
-            });
-          } catch (error) {
-            return JSON.stringify({
-              success: false,
-              error: error.message,
-            });
-          }
-        },
-      })
-    );
-  }
-
-  /**
-   * Initialize the HCS agent with specialized tools
+   * Initialize the Hedera client/operator for this agent.
    */
   async initialize(): Promise<void> {
-    const prompt = ChatPromptTemplate.fromMessages([
-      [
-        'system',
-        `You are a specialized Hedera Consensus Service (HCS) agent.
-        
-        Your capabilities include:
-        - Creating HCS topics for consensus logging
-        - Submitting messages to topics for immutable record-keeping
-        - Retrieving topic information and message history
-        - Setting up topic subscriptions for real-time monitoring
-        
-        You are particularly focused on:
-        - Product authenticity logging for VeriChainX
-        - Supply chain consensus messages
-        - Audit trail creation and management
-        - Real-time fraud detection alerts
-        
-        Always provide clear explanations of HCS operations and their implications for data integrity.
-        Ensure all operations are optimized for the {network} network.
-        
-        When handling requests, use the appropriate HCS tools and provide structured responses.`,
-      ],
-      ['human', '{input}'],
-      ['placeholder', '{agent_scratchpad}'],
-    ]);
+    const client = this.network === 'mainnet' ? Client.forMainnet() : Client.forTestnet();
+    client.setOperator(this.accountId, PrivateKey.fromString(this.privateKey));
+    this.client = client;
+    console.log(`🏛️ HCS Agent initialized on ${this.network}`);
+  }
 
-    const agent = await createToolCallingAgent({
-      llm: this.llm as any,
-      tools: this.tools as any,
-      prompt: prompt as any,
-    });
-
-    this.agentExecutor = new AgentExecutor({
-      agent,
-      tools: this.tools as any,
-      verbose: true,
-      maxIterations: 3,
-    });
-
-    console.log('🏛️ HCS Agent initialized successfully');
+  private requireClient(): Client {
+    if (!this.client) {
+      throw new Error('HCS agent not initialized. Call initialize() first.');
+    }
+    return this.client;
   }
 
   /**
-   * Execute HCS operation via natural language
-   */
-  async executeOperation(request: string): Promise<HcsOperation> {
-    if (!this.agentExecutor) {
-      await this.initialize();
-    }
-
-    try {
-      const result = await this.agentExecutor!.invoke({
-        input: request,
-        network: this.network,
-      });
-
-      return {
-        success: true,
-        message: result.output,
-        details: {
-          intermediateSteps: result.intermediateSteps,
-          network: this.network,
-          agent: 'HCS',
-        },
-      };
-    } catch (error) {
-      console.error('HCS operation error:', error);
-      return {
-        success: false,
-        message: `HCS operation failed: ${error.message}`,
-      };
-    }
-  }
-
-  /**
-   * Direct HCS operations (non-LLM)
+   * Create a new HCS topic.
    */
   async createTopic(memo: string, adminKey?: string): Promise<HcsOperation> {
     try {
-      const result = await this.agentKit.createTopic(memo, adminKey);
+      const client = this.requireClient();
+      let tx = new TopicCreateTransaction().setTopicMemo(memo);
+      if (adminKey) {
+        tx = tx.setAdminKey(PrivateKey.fromString(adminKey).publicKey);
+      }
+      const response = await tx.execute(client);
+      const receipt = await response.getReceipt(client);
+
       return {
         success: true,
-        topicId: result.topicId,
-        transactionId: result.transactionId,
-        message: `HCS topic created: ${result.topicId}`,
+        topicId: receipt.topicId?.toString(),
+        transactionId: response.transactionId.toString(),
+        message: `HCS topic created: ${receipt.topicId?.toString()}`,
       };
     } catch (error) {
       return {
         success: false,
-        message: `Failed to create HCS topic: ${error.message}`,
+        message: `Failed to create HCS topic: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
   }
 
+  /**
+   * Submit a message to an existing HCS topic.
+   */
   async submitMessage(topicId: string, message: string): Promise<HcsOperation> {
     try {
-      const result = await this.agentKit.submitMessageToTopic(topicId, message);
+      const client = this.requireClient();
+      const response = await new TopicMessageSubmitTransaction()
+        .setTopicId(topicId)
+        .setMessage(message)
+        .execute(client);
+      const receipt = await response.getReceipt(client);
+
       return {
         success: true,
-        topicId: topicId,
-        transactionId: result.transactionId,
-        sequenceNumber: result.sequenceNumber,
-        consensusTimestamp: result.consensusTimestamp,
+        topicId,
+        transactionId: response.transactionId.toString(),
+        sequenceNumber: receipt.topicSequenceNumber?.toNumber(),
         message: `Message submitted to HCS topic ${topicId}`,
       };
     } catch (error) {
       return {
         success: false,
-        message: `Failed to submit message to HCS topic: ${error.message}`,
+        message: `Failed to submit message to HCS topic: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
   }
 
   /**
-   * Get available HCS tools
+   * Look up information about an HCS topic.
    */
-  getAvailableTools(): Array<{ name: string; description: string }> {
-    return this.tools.map(tool => ({
-      name: tool.name,
-      description: tool.description,
-    }));
+  async getTopicInfo(topicId: string): Promise<HcsOperation> {
+    try {
+      const client = this.requireClient();
+      const info = await new TopicInfoQuery().setTopicId(topicId.trim()).execute(client);
+      return {
+        success: true,
+        topicId,
+        message: `Retrieved info for topic ${topicId}`,
+        details: {
+          memo: info.topicMemo,
+          sequenceNumber: info.sequenceNumber?.toString(),
+          runningHash: info.runningHash ? Buffer.from(info.runningHash).toString('hex') : undefined,
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Failed to get topic info: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
   }
 
   /**
-   * Get agent status
+   * Generic entry point used by the tool-calling service for custom HCS requests.
+   * Structured operations should use the specific methods above; free-form
+   * natural-language requests should go through HederaLangChainAgent.
    */
+  async executeOperation(request: string): Promise<HcsOperation> {
+    return {
+      success: false,
+      message:
+        'Free-form HCS requests are handled by the natural-language agent. ' +
+        'Use createTopic/submitMessage/getTopicInfo for direct operations.',
+      details: { request, network: this.network, agent: 'HCS' },
+    };
+  }
+
+  /**
+   * Operations this agent supports (for status/introspection).
+   */
+  getAvailableTools(): Array<{ name: string; description: string }> {
+    return [
+      { name: 'create_hcs_topic', description: 'Create a new HCS topic for consensus messages.' },
+      { name: 'submit_hcs_message', description: 'Submit a message to an existing HCS topic.' },
+      { name: 'get_topic_info', description: 'Get information about an HCS topic.' },
+    ];
+  }
+
   getStatus(): { network: string; accountId: string; ready: boolean } {
     return {
       network: this.network,
       accountId: this.accountId,
-      ready: this.agentExecutor !== null,
+      ready: this.client !== null,
     };
   }
 }
@@ -311,10 +181,5 @@ export const hcsSchemas = {
 
   getTopicInfo: z.object({
     topicId: z.string().regex(/^0\.0\.\d+$/),
-  }),
-
-  subscribeToTopic: z.object({
-    topicId: z.string().regex(/^0\.0\.\d+$/),
-    startTime: z.string().datetime().optional(),
   }),
 };

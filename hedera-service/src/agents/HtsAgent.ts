@@ -1,13 +1,20 @@
 /**
  * HTS (Hedera Token Service) Specialized Agent
- * Handles token creation, minting, transfers, and NFT operations
+ *
+ * Performs HTS operations programmatically against the Hedera network using the
+ * official @hashgraph/sdk. These are deterministic blockchain calls (no LLM) —
+ * the natural-language path lives in HederaLangChainAgent (HederaAgentKit.ts).
  */
 
-import { HederaAgentKit, createUnmigratedAgentKit } from './HederaAgentKit';
-import { ChatOpenAI } from '@langchain/openai';
-import { AgentExecutor, createToolCallingAgent } from 'langchain/agents';
-import { ChatPromptTemplate } from '@langchain/core/prompts';
-import { DynamicTool } from '@langchain/core/tools';
+import {
+  Client,
+  PrivateKey,
+  TokenCreateTransaction,
+  TokenMintTransaction,
+  TransferTransaction,
+  TokenType,
+  TokenSupplyType,
+} from '@hashgraph/sdk';
 import { z } from 'zod';
 
 export interface HtsOperation {
@@ -22,336 +29,35 @@ export interface HtsOperation {
 }
 
 export class HtsAgent {
-  private agentKit: any;
-  private llm: ChatOpenAI;
-  private agentExecutor: AgentExecutor | null = null;
-  private tools: DynamicTool[] = [];
+  private client: Client | null = null;
+  private operatorKey: PrivateKey | null = null;
 
   constructor(
     private accountId: string,
     private privateKey: string,
     private network: 'testnet' | 'mainnet' = 'testnet'
-  ) {
-    this.agentKit = createUnmigratedAgentKit({
-      accountId: this.accountId,
-      privateKey: this.privateKey,
-      network: this.network,
-    });
-
-    this.llm = new ChatOpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-      model: 'gpt-4o-mini',
-      temperature: 0.1,
-    });
-
-    this.initializeHtsTools();
-  }
+  ) {}
 
   /**
-   * Initialize HTS-specific tools
-   */
-  private initializeHtsTools(): void {
-    // Create Fungible Token Tool
-    this.tools.push(
-      new DynamicTool({
-        name: 'create_fungible_token',
-        description: 'Create a new fungible token. Input should be JSON with name, symbol, decimals, and initialSupply.',
-        func: async (input: string) => {
-          try {
-            const { name, symbol, decimals, initialSupply } = JSON.parse(input);
-            const result = await this.agentKit.createToken(name, symbol, decimals, initialSupply);
-            return JSON.stringify({
-              success: true,
-              tokenId: result.tokenId,
-              transactionId: result.transactionId,
-              message: `Successfully created fungible token ${symbol} (${name})`,
-              tokenInfo: { name, symbol, decimals, initialSupply },
-            });
-          } catch (error) {
-            return JSON.stringify({
-              success: false,
-              error: error.message,
-            });
-          }
-        },
-      })
-    );
-
-    // Create NFT Token Tool
-    this.tools.push(
-      new DynamicTool({
-        name: 'create_nft_token',
-        description: 'Create a new NFT collection. Input should be JSON with name and symbol.',
-        func: async (input: string) => {
-          try {
-            const { name, symbol } = JSON.parse(input);
-            // NFTs have 0 decimals and 0 initial supply
-            const result = await this.agentKit.createToken(name, symbol, 0, 0);
-            return JSON.stringify({
-              success: true,
-              tokenId: result.tokenId,
-              transactionId: result.transactionId,
-              message: `Successfully created NFT collection ${symbol} (${name})`,
-              tokenInfo: { name, symbol, type: 'NFT' },
-            });
-          } catch (error) {
-            return JSON.stringify({
-              success: false,
-              error: error.message,
-            });
-          }
-        },
-      })
-    );
-
-    // Mint Token Tool
-    this.tools.push(
-      new DynamicTool({
-        name: 'mint_tokens',
-        description: 'Mint additional tokens or NFTs. Input should be JSON with tokenId and amount (or metadata for NFTs).',
-        func: async (input: string) => {
-          try {
-            const { tokenId, amount, metadata } = JSON.parse(input);
-            let result;
-            
-            if (metadata) {
-              // Mint NFT with metadata
-              result = await this.agentKit.mintNFT(tokenId, metadata);
-            } else {
-              // Mint fungible tokens
-              result = await this.agentKit.mintToken(tokenId, amount);
-            }
-            
-            return JSON.stringify({
-              success: true,
-              tokenId: tokenId,
-              transactionId: result.transactionId,
-              serialNumber: result.serialNumber,
-              amount: amount,
-              message: metadata 
-                ? `Successfully minted NFT with serial ${result.serialNumber}` 
-                : `Successfully minted ${amount} tokens`,
-            });
-          } catch (error) {
-            return JSON.stringify({
-              success: false,
-              error: error.message,
-            });
-          }
-        },
-      })
-    );
-
-    // Transfer Token Tool
-    this.tools.push(
-      new DynamicTool({
-        name: 'transfer_tokens',
-        description: 'Transfer tokens between accounts. Input should be JSON with tokenId, toAccountId, amount, and optionally serialNumber for NFTs.',
-        func: async (input: string) => {
-          try {
-            const { tokenId, toAccountId, amount, serialNumber } = JSON.parse(input);
-            let result;
-            
-            if (serialNumber) {
-              // Transfer NFT
-              result = await this.agentKit.transferNFT(tokenId, toAccountId, serialNumber);
-            } else {
-              // Transfer fungible tokens
-              result = await this.agentKit.transferToken(tokenId, toAccountId, amount);
-            }
-            
-            return JSON.stringify({
-              success: true,
-              tokenId: tokenId,
-              transactionId: result.transactionId,
-              toAccountId: toAccountId,
-              amount: amount,
-              serialNumber: serialNumber,
-              message: serialNumber 
-                ? `Successfully transferred NFT serial ${serialNumber} to ${toAccountId}`
-                : `Successfully transferred ${amount} tokens to ${toAccountId}`,
-            });
-          } catch (error) {
-            return JSON.stringify({
-              success: false,
-              error: error.message,
-            });
-          }
-        },
-      })
-    );
-
-    // Transfer HBAR Tool
-    this.tools.push(
-      new DynamicTool({
-        name: 'transfer_hbar',
-        description: 'Transfer HBAR between accounts. Input should be JSON with toAccountId and amount.',
-        func: async (input: string) => {
-          try {
-            const { toAccountId, amount } = JSON.parse(input);
-            const result = await this.agentKit.transferHBAR(toAccountId, amount);
-            return JSON.stringify({
-              success: true,
-              transactionId: result.transactionId,
-              toAccountId: toAccountId,
-              amount: amount,
-              message: `Successfully transferred ${amount} HBAR to ${toAccountId}`,
-            });
-          } catch (error) {
-            return JSON.stringify({
-              success: false,
-              error: error.message,
-            });
-          }
-        },
-      })
-    );
-
-    // Get Token Balance Tool
-    this.tools.push(
-      new DynamicTool({
-        name: 'get_token_balance',
-        description: 'Get token balance for an account. Input should be JSON with accountId and optionally tokenId.',
-        func: async (input: string) => {
-          try {
-            const { accountId, tokenId } = JSON.parse(input);
-            const balance = await this.agentKit.getAccountBalance(accountId);
-            
-            if (tokenId) {
-              const tokenBalance = balance.tokens?.[tokenId] || 0;
-              return JSON.stringify({
-                success: true,
-                accountId: accountId,
-                tokenId: tokenId,
-                balance: tokenBalance.toString(),
-                message: `Token ${tokenId} balance: ${tokenBalance}`,
-              });
-            } else {
-              return JSON.stringify({
-                success: true,
-                accountId: accountId,
-                hbarBalance: balance.hbars.toString(),
-                tokens: balance.tokens || {},
-                message: `Account ${accountId} balance retrieved`,
-              });
-            }
-          } catch (error) {
-            return JSON.stringify({
-              success: false,
-              error: error.message,
-            });
-          }
-        },
-      })
-    );
-
-    // Get Token Info Tool
-    this.tools.push(
-      new DynamicTool({
-        name: 'get_token_info',
-        description: 'Get detailed information about a token. Input should be the tokenId as a string.',
-        func: async (tokenId: string) => {
-          try {
-            const info = await this.agentKit.getTokenInfo(tokenId.trim());
-            return JSON.stringify({
-              success: true,
-              tokenId: tokenId,
-              tokenInfo: info,
-              message: `Retrieved info for token ${tokenId}`,
-            });
-          } catch (error) {
-            return JSON.stringify({
-              success: false,
-              error: error.message,
-            });
-          }
-        },
-      })
-    );
-  }
-
-  /**
-   * Initialize the HTS agent with specialized tools
+   * Initialize the Hedera client/operator for this agent.
    */
   async initialize(): Promise<void> {
-    const prompt = ChatPromptTemplate.fromMessages([
-      [
-        'system',
-        `You are a specialized Hedera Token Service (HTS) agent.
-        
-        Your capabilities include:
-        - Creating fungible tokens and NFT collections
-        - Minting tokens and NFTs with metadata
-        - Transferring tokens and NFTs between accounts
-        - Managing HBAR transfers
-        - Retrieving account balances and token information
-        
-        You are particularly focused on:
-        - VeriChainX authenticity certificates as NFTs
-        - Supply chain token tracking
-        - Product verification badges
-        - Reward tokens for verified products
-        
-        Always provide clear explanations of HTS operations and their implications for tokenomics.
-        Ensure all operations are optimized for the {network} network.
-        
-        When handling requests, use the appropriate HTS tools and provide structured responses.
-        Be careful with token transfers and always verify recipient accounts.`,
-      ],
-      ['human', '{input}'],
-      ['placeholder', '{agent_scratchpad}'],
-    ]);
+    const client = this.network === 'mainnet' ? Client.forMainnet() : Client.forTestnet();
+    this.operatorKey = PrivateKey.fromString(this.privateKey);
+    client.setOperator(this.accountId, this.operatorKey);
+    this.client = client;
+    console.log(`🪙 HTS Agent initialized on ${this.network}`);
+  }
 
-    const agent = await createToolCallingAgent({
-      llm: this.llm as any,
-      tools: this.tools as any,
-      prompt: prompt as any,
-    });
-
-    this.agentExecutor = new AgentExecutor({
-      agent,
-      tools: this.tools as any,
-      verbose: true,
-      maxIterations: 3,
-    });
-
-    console.log('🎫 HTS Agent initialized successfully');
+  private requireClient(): Client {
+    if (!this.client || !this.operatorKey) {
+      throw new Error('HTS agent not initialized. Call initialize() first.');
+    }
+    return this.client;
   }
 
   /**
-   * Execute HTS operation via natural language
-   */
-  async executeOperation(request: string): Promise<HtsOperation> {
-    if (!this.agentExecutor) {
-      await this.initialize();
-    }
-
-    try {
-      const result = await this.agentExecutor!.invoke({
-        input: request,
-        network: this.network,
-      });
-
-      return {
-        success: true,
-        message: result.output,
-        details: {
-          intermediateSteps: result.intermediateSteps,
-          network: this.network,
-          agent: 'HTS',
-        },
-      };
-    } catch (error) {
-      console.error('HTS operation error:', error);
-      return {
-        success: false,
-        message: `HTS operation failed: ${error.message}`,
-      };
-    }
-  }
-
-  /**
-   * Direct HTS operations (non-LLM)
+   * Create a fungible token with the operator as treasury.
    */
   async createFungibleToken(
     name: string,
@@ -360,96 +66,159 @@ export class HtsAgent {
     initialSupply: number
   ): Promise<HtsOperation> {
     try {
-      const result = await this.agentKit.createToken(name, symbol, decimals, initialSupply);
+      const client = this.requireClient();
+      const response = await new TokenCreateTransaction()
+        .setTokenName(name)
+        .setTokenSymbol(symbol)
+        .setTokenType(TokenType.FungibleCommon)
+        .setDecimals(decimals)
+        .setInitialSupply(initialSupply)
+        .setTreasuryAccountId(this.accountId)
+        .setAdminKey(this.operatorKey!.publicKey)
+        .setSupplyKey(this.operatorKey!.publicKey)
+        .execute(client);
+      const receipt = await response.getReceipt(client);
+
       return {
         success: true,
-        tokenId: result.tokenId,
-        transactionId: result.transactionId,
-        message: `Fungible token created: ${result.tokenId}`,
+        tokenId: receipt.tokenId?.toString(),
+        transactionId: response.transactionId.toString(),
+        message: `Fungible token created: ${receipt.tokenId?.toString()}`,
       };
     } catch (error) {
       return {
         success: false,
-        message: `Failed to create fungible token: ${error.message}`,
+        message: `Failed to create fungible token: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
   }
 
+  /**
+   * Create a non-fungible token collection with the operator as treasury.
+   */
   async createNftCollection(name: string, symbol: string): Promise<HtsOperation> {
     try {
-      const result = await this.agentKit.createToken(name, symbol, 0, 0);
+      const client = this.requireClient();
+      const response = await new TokenCreateTransaction()
+        .setTokenName(name)
+        .setTokenSymbol(symbol)
+        .setTokenType(TokenType.NonFungibleUnique)
+        .setDecimals(0)
+        .setInitialSupply(0)
+        .setSupplyType(TokenSupplyType.Finite)
+        .setMaxSupply(10000)
+        .setTreasuryAccountId(this.accountId)
+        .setAdminKey(this.operatorKey!.publicKey)
+        .setSupplyKey(this.operatorKey!.publicKey)
+        .execute(client);
+      const receipt = await response.getReceipt(client);
+
       return {
         success: true,
-        tokenId: result.tokenId,
-        transactionId: result.transactionId,
-        message: `NFT collection created: ${result.tokenId}`,
+        tokenId: receipt.tokenId?.toString(),
+        transactionId: response.transactionId.toString(),
+        message: `NFT collection created: ${receipt.tokenId?.toString()}`,
       };
     } catch (error) {
       return {
         success: false,
-        message: `Failed to create NFT collection: ${error.message}`,
+        message: `Failed to create NFT collection: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
   }
 
+  /**
+   * Mint a single NFT (with metadata) into an existing collection.
+   */
   async mintNft(tokenId: string, metadata: any): Promise<HtsOperation> {
     try {
-      const result = await this.agentKit.mintNFT(tokenId, metadata);
+      const client = this.requireClient();
+      const encoded = Buffer.from(typeof metadata === 'string' ? metadata : JSON.stringify(metadata));
+      const response = await new TokenMintTransaction()
+        .setTokenId(tokenId)
+        .setMetadata([encoded])
+        .execute(client);
+      const receipt = await response.getReceipt(client);
+      const serial = receipt.serials && receipt.serials.length > 0 ? receipt.serials[0].toNumber() : undefined;
+
       return {
         success: true,
-        tokenId: tokenId,
-        transactionId: result.transactionId,
-        serialNumber: result.serialNumber,
-        message: `NFT minted with serial ${result.serialNumber}`,
+        tokenId,
+        transactionId: response.transactionId.toString(),
+        serialNumber: serial,
+        message: `NFT minted with serial ${serial}`,
       };
     } catch (error) {
       return {
         success: false,
-        message: `Failed to mint NFT: ${error.message}`,
+        message: `Failed to mint NFT: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
   }
 
+  /**
+   * Transfer fungible tokens from the operator to another account.
+   */
   async transferToken(
     tokenId: string,
     toAccountId: string,
     amount: number
   ): Promise<HtsOperation> {
     try {
-      const result = await this.agentKit.transferToken(tokenId, toAccountId, amount);
+      const client = this.requireClient();
+      const response = await new TransferTransaction()
+        .addTokenTransfer(tokenId, this.accountId, -amount)
+        .addTokenTransfer(tokenId, toAccountId, amount)
+        .execute(client);
+      const receipt = await response.getReceipt(client);
+
       return {
         success: true,
-        tokenId: tokenId,
-        transactionId: result.transactionId,
-        amount: amount,
-        message: `Transferred ${amount} tokens to ${toAccountId}`,
+        tokenId,
+        transactionId: response.transactionId.toString(),
+        amount,
+        message: `Transferred ${amount} of ${tokenId} to ${toAccountId} (${receipt.status.toString()})`,
       };
     } catch (error) {
       return {
         success: false,
-        message: `Failed to transfer tokens: ${error.message}`,
+        message: `Failed to transfer tokens: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
   }
 
   /**
-   * Get available HTS tools
+   * Generic entry point used by the tool-calling service for custom HTS requests.
+   * Structured operations should use the specific methods above; free-form
+   * natural-language requests should go through HederaLangChainAgent.
    */
-  getAvailableTools(): Array<{ name: string; description: string }> {
-    return this.tools.map(tool => ({
-      name: tool.name,
-      description: tool.description,
-    }));
+  async executeOperation(request: string): Promise<HtsOperation> {
+    return {
+      success: false,
+      message:
+        'Free-form HTS requests are handled by the natural-language agent. ' +
+        'Use createFungibleToken/createNftCollection/mintNft/transferToken for direct operations.',
+      details: { request, network: this.network, agent: 'HTS' },
+    };
   }
 
   /**
-   * Get agent status
+   * Operations this agent supports (for status/introspection).
    */
+  getAvailableTools(): Array<{ name: string; description: string }> {
+    return [
+      { name: 'create_fungible_token', description: 'Create a fungible HTS token.' },
+      { name: 'create_nft_collection', description: 'Create an NFT collection.' },
+      { name: 'mint_nft', description: 'Mint an NFT with metadata into a collection.' },
+      { name: 'transfer_token', description: 'Transfer fungible tokens between accounts.' },
+    ];
+  }
+
   getStatus(): { network: string; accountId: string; ready: boolean } {
     return {
       network: this.network,
       accountId: this.accountId,
-      ready: this.agentExecutor !== null,
+      ready: this.client !== null,
     };
   }
 }
@@ -481,15 +250,5 @@ export const htsSchemas = {
     toAccountId: z.string().regex(/^0\.0\.\d+$/),
     amount: z.number().positive().optional(),
     serialNumber: z.number().positive().optional(),
-  }),
-
-  transferHbar: z.object({
-    toAccountId: z.string().regex(/^0\.0\.\d+$/),
-    amount: z.number().positive(),
-  }),
-
-  getTokenBalance: z.object({
-    accountId: z.string().regex(/^0\.0\.\d+$/),
-    tokenId: z.string().regex(/^0\.0\.\d+$/).optional(),
   }),
 };
