@@ -8,6 +8,7 @@
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc",
     "clean": "rm -rf dist",
+    "smoke:agents": "ts-node --transpile-only scripts/smokeTestAgents.ts",
     "compile-contracts": "npx hardhat compile",
     "deploy-contracts": "npx hardhat run scripts/deploy.ts",
     "deploy-defi": "npx hardhat run scripts/deployDeFi.ts",
