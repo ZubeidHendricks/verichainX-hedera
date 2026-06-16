@@ -4,9 +4,10 @@ VeriChainX - AI Counterfeit Detection with TiDB Cloud
 Hackathon Demo Application for TiDB 2025 & Hedera Hackathons
 """
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
 import pymysql
@@ -65,6 +66,24 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Compress responses (helps the large HTML/JSON payloads this API returns)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    """Return a clean JSON error instead of leaking a stack trace to clients."""
+    logger.exception("Unhandled error on %s %s", request.method, request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "success": False,
+            "error": "Internal server error",
+            "path": request.url.path,
+            "timestamp": datetime.now().isoformat(),
+        },
+    )
 
 # OpenAI configuration
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -1063,6 +1082,7 @@ async def health_check():
     """System health check"""
     
     # Test TiDB connection
+    tidb_ok = True
     tidb_status = "connected"
     try:
         conn = get_tidb_connection()
@@ -1071,13 +1091,17 @@ async def health_check():
         cursor.close()
         conn.close()
     except Exception as e:
-        tidb_status = f"error: {str(e)}"
-    
+        tidb_ok = False
+        # Log full detail; expose only a generic reason to clients.
+        logger.error("Health check: TiDB connection failed: %s", e)
+        tidb_status = "unavailable"
+
     # Test OpenAI
     openai_status = "ready" if openai.api_key and openai.api_key.startswith("sk-") else "demo mode"
-    
-    return {
-        "status": "healthy",
+
+    overall_status = "healthy" if tidb_ok else "degraded"
+    payload = {
+        "status": overall_status,
         "timestamp": datetime.now().isoformat(),
         "services": {
             "api": "running",
@@ -1091,6 +1115,10 @@ async def health_check():
             "features": ["HTAP", "Vector Search", "Horizontal Scaling"]
         }
     }
+    # Return 503 when a critical dependency is down so load balancers / uptime
+    # checks can react, but still include the diagnostic payload.
+    status_code = 200 if tidb_ok else 503
+    return JSONResponse(status_code=status_code, content=payload)
 
 @app.get("/analyze", response_class=HTMLResponse)
 async def live_analysis_page():
