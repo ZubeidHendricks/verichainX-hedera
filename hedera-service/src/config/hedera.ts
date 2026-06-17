@@ -44,12 +44,15 @@ export function getHederaClient(): Client {
 
 export async function checkHederaConnection(): Promise<boolean> {
   try {
-    const client = getHederaClient();
     const accountId = process.env.HEDERA_ACCOUNT_ID;
-    
-    if (!accountId) {
+
+    // Not configured (or still the deploy placeholder) — report disconnected
+    // quietly instead of throwing on every health probe.
+    if (!accountId || accountId.includes('REPLACE') || accountId.includes('demo')) {
       return false;
     }
+
+    const client = getHederaClient();
 
     // Simple balance query to test connection
     await new AccountBalanceQuery()
@@ -57,7 +60,7 @@ export async function checkHederaConnection(): Promise<boolean> {
       .execute(client);
     return true;
   } catch (error) {
-    console.error('Hedera connection check failed:', error);
+    console.error('Hedera connection check failed:', error instanceof Error ? error.message : error);
     return false;
   }
 }
