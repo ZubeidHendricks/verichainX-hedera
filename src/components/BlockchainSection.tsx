@@ -5,14 +5,16 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Container, Stack, Chip, Avatar } from '@mui/material';
+import { Box, Typography, Container, Stack, Chip, Avatar, Link, Tooltip } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { GlassmorphicCard } from './GlassmorphicCard';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import SpeedIcon from '@mui/icons-material/Speed';
 import FlashOnIcon from '@mui/icons-material/FlashOn';
-import { apiService, BlockchainTransaction, HederaStats } from '../services/api';
+import HubIcon from '@mui/icons-material/Hub';
+import LaunchIcon from '@mui/icons-material/Launch';
+import { apiService, BlockchainTransaction, HederaStats, HederaNetwork } from '../services/api';
 
 const BlockchainContainer = styled(Box)(({ theme }) => ({
   background: 'linear-gradient(180deg, #000000 0%, #0a0a0a 100%)',
@@ -111,6 +113,7 @@ const hederaStats = {
 
 export const BlockchainSection: React.FC = () => {
   const [transactions, setTransactions] = useState<BlockchainTransaction[]>([]);
+  const [network, setNetwork] = useState<HederaNetwork | null>(null);
   const [liveStats, setLiveStats] = useState<HederaStats>({
     totalTransactions: 1247892,
     todayVerifications: 3421,
@@ -124,12 +127,14 @@ export const BlockchainSection: React.FC = () => {
     // Initial data fetch
     const fetchData = async () => {
       try {
-        const [txData, statsData] = await Promise.all([
+        const [txData, statsData, networkData] = await Promise.all([
           apiService.getHederaTransactions(),
           apiService.getHederaStats(),
+          apiService.getHederaNetwork(),
         ]);
         setTransactions(txData);
         setLiveStats(statsData);
+        setNetwork(networkData);
       } catch (error) {
         console.error('Failed to fetch blockchain data:', error);
         // Keep mock data as fallback
@@ -142,12 +147,14 @@ export const BlockchainSection: React.FC = () => {
     // Set up periodic updates
     const interval = setInterval(async () => {
       try {
-        const [txData, statsData] = await Promise.all([
+        const [txData, statsData, networkData] = await Promise.all([
           apiService.getHederaTransactions(),
           apiService.getHederaStats(),
+          apiService.getHederaNetwork(),
         ]);
         setTransactions(txData);
         setLiveStats(statsData);
+        setNetwork(networkData);
       } catch (error) {
         // Simulate new transactions as fallback
         const newTransaction: BlockchainTransaction = {
@@ -193,7 +200,8 @@ export const BlockchainSection: React.FC = () => {
       case 'verification': return 'Product Verified';
       case 'nft_mint': return 'Authenticity NFT';
       case 'audit_log': return 'Audit Log';
-      default: return 'Transaction';
+      // Real Hedera transaction types arrive as friendly labels already.
+      default: return type || 'Transaction';
     }
   };
 
@@ -305,15 +313,38 @@ export const BlockchainSection: React.FC = () => {
                           {getTransactionIcon(tx.type)}
                         </Avatar>
                         
-                        <Stack flex={1}>
+                        <Stack flex={1} sx={{ minWidth: 0 }}>
                           <Typography variant="subtitle2" sx={{ color: '#FFFFFF', fontWeight: 600 }}>
                             {tx.product}
                           </Typography>
-                          <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-                            {tx.txHash} • {tx.timestamp}
-                          </Typography>
+                          {tx.explorerUrl ? (
+                            <Link
+                              href={tx.explorerUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              underline="hover"
+                              sx={{
+                                color: '#FFD700',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 0.5,
+                                fontSize: '0.75rem',
+                                maxWidth: '100%',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {tx.txHash}
+                              <LaunchIcon sx={{ fontSize: 12 }} />
+                            </Link>
+                          ) : (
+                            <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                              {tx.txHash}
+                            </Typography>
+                          )}
                         </Stack>
-                        
+
                         <Chip
                           label={getTransactionLabel(tx.type)}
                           size="small"
@@ -364,6 +395,26 @@ export const BlockchainSection: React.FC = () => {
                       {liveStats.nftsMinted.toLocaleString()}
                     </Typography>
                   </Box>
+
+                  {network && network.consensusNodes > 0 && (
+                    <Box sx={{ pt: 2, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                        <PulsingDot color="#2196F3" />
+                        <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                          Live {network.network} network
+                        </Typography>
+                        <Tooltip title="Real data from the Hedera Mirror Node">
+                          <HubIcon sx={{ fontSize: 16, color: '#2196F3' }} />
+                        </Tooltip>
+                      </Stack>
+                      <Typography variant="h5" sx={{ color: '#FFFFFF', fontWeight: 700 }}>
+                        {network.consensusNodes} consensus nodes
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.6)' }}>
+                        {network.totalSupplyHbar.toLocaleString()} ℏ total supply
+                      </Typography>
+                    </Box>
+                  )}
                 </Stack>
               </Stack>
             </GlassmorphicCard>

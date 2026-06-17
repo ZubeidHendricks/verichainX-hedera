@@ -35,12 +35,21 @@ export interface DetectionActivity {
 
 export interface BlockchainTransaction {
   id: string;
-  type: 'verification' | 'nft_mint' | 'audit_log';
+  type: string;
   product: string;
   timestamp: string;
-  status: 'verified' | 'pending' | 'complete';
+  status: string;
   txHash: string;
   hederaAccountId?: string;
+  explorerUrl?: string;
+}
+
+export interface HederaNetwork {
+  network: string;
+  consensusNodes: number;
+  totalSupplyHbar: number;
+  releasedSupplyHbar: number;
+  mirrorNode: string;
 }
 
 export interface HederaStats {
@@ -259,6 +268,7 @@ class VeriChainXApiService {
         status: tx.status,
         txHash: tx.transaction_hash,
         hederaAccountId: tx.hedera_account_id,
+        explorerUrl: tx.explorer_url,
       })) || [];
     } catch (error) {
       // Return mock data
@@ -311,6 +321,29 @@ class VeriChainXApiService {
         networkTps: '10,000+',
         finality: '3-5 sec',
         uptime: '100%',
+      };
+    }
+  }
+
+  // Live Hedera network info (real Mirror Node data)
+  async getHederaNetwork(): Promise<HederaNetwork> {
+    try {
+      const response = await this.client.get('/api/v1/hedera/network');
+      const d = response.data.data || {};
+      return {
+        network: d.network || 'testnet',
+        consensusNodes: d.consensus_nodes || 0,
+        totalSupplyHbar: d.total_supply_hbar || 0,
+        releasedSupplyHbar: d.released_supply_hbar || 0,
+        mirrorNode: d.mirror_node || '',
+      };
+    } catch (error) {
+      return {
+        network: 'testnet',
+        consensusNodes: 0,
+        totalSupplyHbar: 0,
+        releasedSupplyHbar: 0,
+        mirrorNode: '',
       };
     }
   }
