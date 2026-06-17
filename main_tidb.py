@@ -106,9 +106,15 @@ TIDB_CONFIG = {
     'write_timeout': int(os.getenv('TIDB_WRITE_TIMEOUT', '15')),
 }
 
+# Sentinel used in deploy specs before real credentials are entered.
+_TIDB_PLACEHOLDER = "REPLACE_IN_DO_CONSOLE"
+
 def get_tidb_connection():
     """Get TiDB Cloud connection. Requires TIDB_USER and TIDB_PASSWORD in the environment."""
-    if not TIDB_CONFIG['user'] or not TIDB_CONFIG['password']:
+    user, password = TIDB_CONFIG['user'], TIDB_CONFIG['password']
+    if not user or not password or _TIDB_PLACEHOLDER in (user, password):
+        # Unconfigured or still using the deploy placeholder — fail fast so callers
+        # fall back to demo data instantly instead of waiting on a connect timeout.
         raise RuntimeError(
             "TiDB credentials not configured. Set TIDB_USER and TIDB_PASSWORD "
             "(and optionally TIDB_HOST/TIDB_PORT/TIDB_DATABASE) in the environment."
