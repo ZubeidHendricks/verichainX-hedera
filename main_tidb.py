@@ -2537,6 +2537,7 @@ async def get_hedera_transactions(limit: int = 10):
                 "created_at": t["consensus_time"],
                 "status": "confirmed" if t["result"] == "SUCCESS" else (t["result"] or "unknown").lower(),
                 "transaction_hash": t["transaction_id"],
+                "explorer_url": t.get("explorer_url"),
             }
             for t in txs
         ]

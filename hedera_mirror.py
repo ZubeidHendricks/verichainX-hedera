@@ -25,6 +25,16 @@ OPERATOR_ACCOUNT = os.getenv("HEDERA_ACCOUNT_ID", "")
 
 _TIMEOUT = float(os.getenv("HEDERA_MIRROR_TIMEOUT", "8"))
 
+# HashScan explorer — public, lets anyone independently verify on-chain data.
+HASHSCAN_BASE = f"https://hashscan.io/{_NETWORK}"
+
+
+def explorer_url(kind: str, entity_id: Optional[str]) -> Optional[str]:
+    """Build a HashScan URL for a transaction/account/token/topic id."""
+    if not entity_id:
+        return None
+    return f"{HASHSCAN_BASE}/{kind}/{entity_id}"
+
 
 class HederaMirrorError(Exception):
     """Raised when a Mirror Node request fails."""
@@ -76,15 +86,17 @@ def recent_transactions(limit: int = 10, account_id: Optional[str] = None) -> Li
     data = _get("/transactions", params)
     out: List[Dict[str, Any]] = []
     for tx in data.get("transactions", []):
+        tx_id = tx.get("transaction_id")
         out.append(
             {
-                "transaction_id": tx.get("transaction_id"),
+                "transaction_id": tx_id,
                 "name": tx.get("name"),
                 "result": tx.get("result"),
                 "consensus_timestamp": tx.get("consensus_timestamp"),
                 "consensus_time": consensus_to_iso(tx.get("consensus_timestamp")),
                 "charged_tx_fee": tx.get("charged_tx_fee"),
                 "node": tx.get("node"),
+                "explorer_url": explorer_url("transaction", tx_id),
             }
         )
     return out
@@ -103,6 +115,7 @@ def account_info(account_id: str) -> Dict[str, Any]:
         "tokens": balance.get("tokens", []),
         "memo": data.get("memo"),
         "deleted": data.get("deleted"),
+        "explorer_url": explorer_url("account", data.get("account")),
     }
 
 
@@ -115,6 +128,7 @@ def recent_tokens(limit: int = 10) -> List[Dict[str, Any]]:
             "name": t.get("name"),
             "symbol": t.get("symbol"),
             "type": t.get("type"),
+            "explorer_url": explorer_url("token", t.get("token_id")),
         }
         for t in data.get("tokens", [])
     ]
