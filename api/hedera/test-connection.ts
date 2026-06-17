@@ -14,10 +14,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const startTime = Date.now();
 
   try {
-    // Test Hedera connection with your credentials
+    // Test Hedera connection using credentials from the environment.
     const client = Client.forTestnet();
-    const accountId = '0.0.6503585'; // Your provided account ID
-    const privateKey = '0x8b8add46cb9415d0a2429fef41cc6758232ec2a5977b4b234145d0b897ad03eb'; // Your provided private key
+    const accountId = process.env.HEDERA_ACCOUNT_ID;
+    const privateKey = process.env.HEDERA_PRIVATE_KEY;
+    if (!accountId || !privateKey) {
+      return res.status(503).json({
+        success: false,
+        error: 'Hedera credentials not configured (set HEDERA_ACCOUNT_ID and HEDERA_PRIVATE_KEY).',
+      });
+    }
 
     client.setOperator(
       accountId,
@@ -58,7 +64,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(500).json({
       success: false,
       error: error.message,
-      account_id: '0.0.6503585',
+      account_id: process.env.HEDERA_ACCOUNT_ID,
       network: 'testnet',
       response_time_ms: responseTime,
       timestamp: new Date().toISOString(),
