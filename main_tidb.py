@@ -2627,6 +2627,37 @@ async def get_hedera_tokens(limit: int = 10):
         raise HTTPException(status_code=502, detail=f"Hedera Mirror Node error: {e}")
 
 
+@app.post("/api/v1/hedera/anchor", tags=["hedera"])
+async def anchor_verification(payload: Dict[str, Any]):
+    """Anchor an authenticity verdict to the Hedera Consensus Service.
+
+    Proxies to the hedera-service /api/v1/hedera/anchor endpoint (which signs the
+    on-chain transaction). Requires HEDERA_SERVICE_URL to point at a deployed
+    hedera-service that has operator credentials configured.
+
+    Body: {productId, productName, verdict, score, topicId?}
+    """
+    service_url = os.getenv("HEDERA_SERVICE_URL")
+    if not service_url:
+        return {
+            "success": False,
+            "anchored": False,
+            "reason": "HEDERA_SERVICE_URL not configured — deploy hedera-service and set this var.",
+        }
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f"{service_url.rstrip('/')}/api/v1/hedera/anchor",
+                json=payload,
+                timeout=aiohttp.ClientTimeout(total=25),
+            ) as resp:
+                data = await resp.json()
+                return {"success": resp.status == 200, "anchored": bool(data.get("success")), **data}
+    except Exception as e:
+        logger.warning("hedera anchor proxy failed: %s", e)
+        return {"success": False, "anchored": False, "reason": str(e)}
+
+
 @app.get("/api/v1/analytics/detection", tags=["analytics"])
 async def get_detection_analytics():
     """Monthly detection vs. verified counts for the analytics chart."""
