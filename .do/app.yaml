@@ -71,7 +71,8 @@ services:
       repo: ZubeidHendricks/verichainX-hedera
       branch: main
       deploy_on_push: true
-    build_command: npm install && npm run build
+    # --include=dev so TypeScript/@types are installed even with NODE_ENV=production.
+    build_command: npm install --include=dev && npm run build
     run_command: npm start
     environment_slug: node-js
     instance_count: 1
