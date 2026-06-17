@@ -1,0 +1,22 @@
+# DigitalOcean App Platform spec for the VeriChainX React (Vite) frontend.
+#
+# Deployed as a standalone static site so the live backend app stays untouched.
+# VITE_API_BASE_URL points at the deployed API; the frontend gracefully falls
+# back to demo data for any endpoint the backend doesn't (yet) serve.
+name: verichainx-hedera-frontend
+region: nyc
+
+static_sites:
+  - name: frontend
+    github:
+      repo: ZubeidHendricks/verichainX-hedera
+      branch: main
+      deploy_on_push: true
+    build_command: npm install && npm run build
+    output_dir: dist
+    index_document: index.html
+    catchall_document: index.html # SPA: route all paths to index.html
+    envs:
+      - key: VITE_API_BASE_URL
+        scope: BUILD_TIME
+        value: https://verichainx-hedera-hackathon-l2r7z.ondigitalocean.app
