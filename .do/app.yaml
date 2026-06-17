@@ -25,7 +25,9 @@ services:
     instance_size_slug: basic-xxs
     http_port: 8080
     health_check:
-      http_path: /health
+      # Liveness probe (DB-independent) so the app deploys healthy before the
+      # real TiDB credentials are set. /health reports full readiness.
+      http_path: /livez
       initial_delay_seconds: 30
       period_seconds: 10
       success_threshold: 1

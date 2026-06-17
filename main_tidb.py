@@ -1077,10 +1077,17 @@ async def admin_dashboard():
 </body>
 </html>""")
 
+@app.get("/livez", tags=["system"])
+async def liveness_check():
+    """Liveness probe: confirms the process is up. Does not touch the database,
+    so platform health checks pass even before TiDB credentials are configured.
+    Use /health for full readiness (which reports dependency status)."""
+    return {"status": "alive", "timestamp": datetime.now().isoformat()}
+
 @app.get("/health", tags=["system"])
 async def health_check():
     """System health check"""
-    
+
     # Test TiDB connection
     tidb_ok = True
     tidb_status = "connected"
