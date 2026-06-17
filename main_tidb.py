@@ -98,7 +98,12 @@ TIDB_CONFIG = {
     'password': os.getenv('TIDB_PASSWORD', ''),
     'database': os.getenv('TIDB_DATABASE', 'verichainx'),
     'ssl': {'verify_mode': 'none'},
-    'charset': 'utf8mb4'
+    'charset': 'utf8mb4',
+    # Fail fast on unreachable/misconfigured DB instead of hanging the request
+    # (otherwise /health and DB endpoints stall until the edge times out at 504).
+    'connect_timeout': int(os.getenv('TIDB_CONNECT_TIMEOUT', '10')),
+    'read_timeout': int(os.getenv('TIDB_READ_TIMEOUT', '15')),
+    'write_timeout': int(os.getenv('TIDB_WRITE_TIMEOUT', '15')),
 }
 
 def get_tidb_connection():
