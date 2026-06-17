@@ -20,6 +20,7 @@ import asyncio
 import logging
 import aiohttp
 import requests
+import hedera_mirror  # Real on-chain data via the public Hedera Mirror Node
 
 # Load environment variables
 load_dotenv()
@@ -2493,53 +2494,71 @@ async def get_activities(limit: int = 10):
     return {"data": {"items": demo[:limit], "total": len(demo)}}
 
 
+# Friendly labels for raw Hedera transaction type names.
+_HEDERA_TX_LABELS = {
+    "CONSENSUSSUBMITMESSAGE": "Consensus Message",
+    "CONSENSUSCREATETOPIC": "Topic Created",
+    "CRYPTOTRANSFER": "HBAR Transfer",
+    "CRYPTOCREATEACCOUNT": "Account Created",
+    "TOKENCREATION": "Token Created",
+    "TOKENMINT": "Token Mint",
+    "TOKENBURN": "Token Burn",
+    "TOKENASSOCIATE": "Token Associate",
+    "CONTRACTCALL": "Contract Call",
+    "CONTRACTCREATEINSTANCE": "Contract Deployed",
+}
+
+
+def _hedera_tx_label(name: Optional[str]) -> str:
+    if not name:
+        return "Transaction"
+    return _HEDERA_TX_LABELS.get(name, name.title().replace("_", " "))
+
+
 @app.get("/api/v1/hedera/transactions", tags=["hedera"])
 async def get_hedera_transactions(limit: int = 10):
-    """Recent Hedera transactions, derived from products anchored on-chain."""
+    """REAL recent Hedera transactions from the public Mirror Node.
+
+    Uses the configured operator account if it exists on-chain, otherwise the
+    most recent network-wide transactions. Falls back to demo data only if the
+    Mirror Node is unreachable.
+    """
     limit = max(1, min(limit, 50))
     try:
-        conn = get_tidb_connection()
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            SELECT id, name, hedera_nft_id, is_counterfeit, created_at
-            FROM products ORDER BY created_at DESC LIMIT %s
-            """,
-            (limit,),
-        )
-        rows = cursor.fetchall()
-        cursor.close()
-        conn.close()
-        txs = [
+        account = hedera_mirror.OPERATOR_ACCOUNT or None
+        txs = hedera_mirror.recent_transactions(limit, account_id=account)
+        if not txs and account:
+            txs = hedera_mirror.recent_transactions(limit)  # account empty -> network-wide
+        mapped = [
             {
-                "id": str(r[0]),
-                "transaction_type": "NFT_MINT" if r[2] else "VERIFICATION",
-                "product_name": r[1],
-                "created_at": r[4].isoformat() if hasattr(r[4], "isoformat") else str(r[4]),
-                "status": "confirmed",
-                "transaction_hash": r[2] or f"0.0.verify-{r[0]}",
+                "id": t["transaction_id"],
+                "transaction_type": _hedera_tx_label(t["name"]),
+                "product_name": _hedera_tx_label(t["name"]),
+                "created_at": t["consensus_time"],
+                "status": "confirmed" if t["result"] == "SUCCESS" else (t["result"] or "unknown").lower(),
+                "transaction_hash": t["transaction_id"],
             }
-            for r in rows
+            for t in txs
         ]
-        if txs:
-            return {"data": txs, "count": len(txs)}
+        if mapped:
+            return {"data": mapped, "count": len(mapped), "source": "hedera_mirror_node", "network": hedera_mirror._NETWORK}
     except Exception as e:
-        logger.warning("hedera/transactions: TiDB unavailable, using demo data: %s", e)
+        logger.warning("hedera/transactions: Mirror Node unavailable, using demo data: %s", e)
 
     now = datetime.now().isoformat()
     demo = [
-        {"id": "1", "transaction_type": "NFT_MINT", "product_name": "iPhone 15 Pro Max", "created_at": now, "status": "confirmed", "transaction_hash": "0.0.4752063@1718.001"},
-        {"id": "2", "transaction_type": "VERIFICATION", "product_name": "Rolex Submariner", "created_at": now, "status": "confirmed", "transaction_hash": "0.0.4752063@1718.002"},
+        {"id": "demo-1", "transaction_type": "Consensus Message", "product_name": "Consensus Message", "created_at": now, "status": "confirmed", "transaction_hash": "0.0.demo@1718.001"},
+        {"id": "demo-2", "transaction_type": "Token Mint", "product_name": "Token Mint", "created_at": now, "status": "confirmed", "transaction_hash": "0.0.demo@1718.002"},
     ]
-    return {"data": demo[:limit], "count": len(demo)}
+    return {"data": demo[:limit], "count": len(demo), "source": "demo"}
 
 
 @app.get("/api/v1/hedera/stats", tags=["hedera"])
 async def get_hedera_stats():
-    """Hedera network + verification stats (verification counts from TiDB)."""
-    total = 0
-    today = 0
-    nfts = 0
+    """Hedera stats: REAL network supply/nodes from the Mirror Node, combined
+    with this app's verification counts from TiDB."""
+    # App-specific verification counts (TiDB) — best effort.
+    total = today = nfts = 0
     try:
         conn = get_tidb_connection()
         cursor = conn.cursor()
@@ -2552,7 +2571,14 @@ async def get_hedera_stats():
         cursor.close()
         conn.close()
     except Exception as e:
-        logger.warning("hedera/stats: TiDB unavailable, using demo data: %s", e)
+        logger.warning("hedera/stats: TiDB unavailable for app counts: %s", e)
+
+    # REAL Hedera network data from the Mirror Node.
+    network = {}
+    try:
+        network = hedera_mirror.network_info()
+    except Exception as e:
+        logger.warning("hedera/stats: Mirror Node unavailable: %s", e)
 
     return {
         "data": {
@@ -2562,8 +2588,42 @@ async def get_hedera_stats():
             "network_tps": "10,000+",
             "finality": "3-5 sec",
             "uptime": "100%",
+            # Real, live network facts:
+            "network": network.get("network", hedera_mirror._NETWORK),
+            "consensus_nodes": network.get("consensus_nodes"),
+            "total_supply_hbar": network.get("total_supply_hbar"),
+            "released_supply_hbar": network.get("released_supply_hbar"),
         }
     }
+
+
+@app.get("/api/v1/hedera/network", tags=["hedera"])
+async def get_hedera_network():
+    """REAL Hedera network info (supply + consensus nodes) from the Mirror Node."""
+    try:
+        return {"data": hedera_mirror.network_info()}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Hedera Mirror Node error: {e}")
+
+
+@app.get("/api/v1/hedera/account/{account_id}", tags=["hedera"])
+async def get_hedera_account(account_id: str):
+    """REAL Hedera account balance and metadata from the Mirror Node."""
+    try:
+        return {"data": hedera_mirror.account_info(account_id)}
+    except hedera_mirror.HederaMirrorError as e:
+        # 404 from the Mirror Node means the account doesn't exist on this network.
+        raise HTTPException(status_code=404, detail=f"Account {account_id} not found: {e}")
+
+
+@app.get("/api/v1/hedera/tokens", tags=["hedera"])
+async def get_hedera_tokens(limit: int = 10):
+    """REAL recently-created tokens / NFT collections on the network."""
+    try:
+        tokens = hedera_mirror.recent_tokens(limit)
+        return {"data": tokens, "count": len(tokens), "network": hedera_mirror._NETWORK}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Hedera Mirror Node error: {e}")
 
 
 @app.get("/api/v1/analytics/detection", tags=["analytics"])
