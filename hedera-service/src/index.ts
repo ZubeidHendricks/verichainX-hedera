@@ -38,30 +38,32 @@ app.use(errorHandler);
 // the HTTP server still starts and passes health checks. The features that need
 // them surface a clear error when invoked.
 async function startServer() {
-  // Redis (pub/sub for the agent message bus) — optional.
-  try {
-    await connectRedis();
-    console.log('✅ Redis connected successfully');
-    await messageHandler.startListening();
-    console.log('✅ Redis message handler started');
-  } catch (error) {
-    console.warn('⚠️  Redis unavailable — agent message bus disabled:', error instanceof Error ? error.message : error);
-  }
-
-  // Hedera operator client — optional (needed for signing on-chain txs).
-  try {
-    await initializeHedera();
-    console.log('✅ Hedera client initialized');
-  } catch (error) {
-    console.warn('⚠️  Hedera client not initialized — set HEDERA_ACCOUNT_ID/HEDERA_PRIVATE_KEY:', error instanceof Error ? error.message : error);
-  }
-
-  // Always start the HTTP server so /health stays available.
+  // Start the HTTP server FIRST so health checks pass immediately — optional
+  // dependencies (Redis, Hedera) are connected in the background and must never
+  // block or delay liveness.
   app.listen(PORT, () => {
     console.log(`🚀 Hedera Agent Service running on port ${PORT}`);
     console.log(`📡 Environment: ${process.env.NODE_ENV}`);
     console.log(`🔗 Network: ${process.env.HEDERA_NETWORK}`);
   });
+
+  // Redis (pub/sub for the agent message bus) — optional, connected in background.
+  connectRedis()
+    .then(() => {
+      console.log('✅ Redis connected successfully');
+      return messageHandler.startListening();
+    })
+    .then(() => console.log('✅ Redis message handler started'))
+    .catch((error) =>
+      console.warn('⚠️  Redis unavailable — agent message bus disabled:', error instanceof Error ? error.message : error)
+    );
+
+  // Hedera operator client — optional (needed for signing on-chain txs).
+  initializeHedera()
+    .then(() => console.log('✅ Hedera client initialized'))
+    .catch((error) =>
+      console.warn('⚠️  Hedera client not initialized — set HEDERA_ACCOUNT_ID/HEDERA_PRIVATE_KEY:', error instanceof Error ? error.message : error)
+    );
 }
 
 // Handle graceful shutdown
