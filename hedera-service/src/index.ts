@@ -24,9 +24,31 @@ app.use(morgan('combined'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Root — service info + endpoint index (avoids a bare "Cannot GET /").
+app.get('/', (_req, res) => {
+  res.json({
+    service: 'VeriChainX Hedera Service',
+    status: 'running',
+    network: process.env.HEDERA_NETWORK || 'testnet',
+    version: '2.0.0',
+    endpoints: {
+      health: 'GET /health',
+      status: 'GET /api/v1/hedera/status',
+      anchor: 'POST /api/v1/hedera/anchor',
+      ping: 'POST /api/v1/hedera/ping',
+    },
+    docs: 'https://github.com/ZubeidHendricks/verichainX-hedera',
+  });
+});
+
 // Routes
 app.use('/health', healthRoutes);
 app.use('/api/v1/hedera', hederaRoutes);
+
+// 404 — JSON instead of Express's default "Cannot GET /" HTML.
+app.use((req, res) => {
+  res.status(404).json({ error: 'Not found', path: req.path, method: req.method });
+});
 
 // Error handling
 app.use(errorHandler);
