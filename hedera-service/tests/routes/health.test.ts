@@ -32,8 +32,9 @@ describe('Health Routes', () => {
     expect(response.body.environment).toBe('test');
   });
 
-  it('should handle health check errors gracefully', async () => {
-    // Mock Redis to fail
+  it('stays live (200) and reports degraded deps when a dependency fails', async () => {
+    // Mock Redis to fail — /health is a liveness probe, so it should still
+    // return 200 but mark the dependency as unavailable (readiness in body).
     const mockError = new Error('Redis connection failed');
     const { getRedisClient } = require('../../src/config/redis');
     getRedisClient.mockReturnValueOnce({
@@ -42,13 +43,10 @@ describe('Health Routes', () => {
 
     const response = await request(app)
       .get('/health')
-      .expect(503);
+      .expect(200);
 
-    expect(response.body).toMatchObject({
-      status: 'unhealthy',
-      error: 'Redis connection failed',
-    });
-
+    expect(response.body.status).toBe('healthy');
+    expect(response.body.services.redis).toBe('unavailable');
     expect(response.body.timestamp).toBeDefined();
   });
 });
