@@ -20,7 +20,11 @@ import asyncio
 import logging
 import aiohttp
 import requests
-import hedera_mirror  # Real on-chain data via the public Hedera Mirror Node
+try:
+    import hedera_mirror  # Real on-chain data via the public Hedera Mirror Node
+except Exception as _hm_err:  # pragma: no cover - defensive (e.g. if not bundled)
+    hedera_mirror = None
+    logging.getLogger(__name__).warning("hedera_mirror module unavailable: %s", _hm_err)
 
 # Load environment variables
 load_dotenv()
