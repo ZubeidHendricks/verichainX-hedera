@@ -1,152 +1,117 @@
 /**
- * VeriChain X Landing Page Theme Configuration
- * 
- * Glassmorphic gold and black theme for premium blockchain aesthetic
+ * VeriChainX — Modern dark SaaS theme
+ *
+ * Near-black background with violet/cyan accents, crisp typography, and subtle
+ * bordered "glass" surfaces (Linear / Vercel aesthetic).
  */
 
-import { createTheme } from '@mui/material/styles';
+import { createTheme, alpha } from '@mui/material/styles';
+
+const VIOLET = '#7C5CFF';
+const CYAN = '#22D3EE';
+const BG = '#0A0A0F';
+const SURFACE = '#121219';
+
+const subtle = '0 1px 2px rgba(0,0,0,0.4)';
+const soft = '0 8px 30px rgba(0,0,0,0.5)';
+const glow = `0 0 0 1px ${alpha(VIOLET, 0.4)}, 0 8px 40px ${alpha(VIOLET, 0.25)}`;
 
 const theme = createTheme({
   palette: {
-    primary: {
-      main: '#FFD700', // Gold
-      light: '#FFA500', // Orange gold
-      dark: '#B8860B', // Dark goldenrod
-      contrastText: '#000000',
-    },
-    secondary: {
-      main: '#DAA520', // Goldenrod
-      light: '#F4E4BC', // Light gold
-      dark: '#B8860B', // Dark goldenrod
-      contrastText: '#000000',
-    },
-    background: {
-      default: '#000000', // Black
-      paper: 'rgba(26, 26, 26, 0.8)', // Dark with transparency for glassmorphic effect
-    },
-    text: {
-      primary: '#FFFFFF', // White
-      secondary: '#FFD700', // Gold
-      disabled: 'rgba(255, 255, 255, 0.5)',
-    },
-    grey: {
-      50: '#FFFFFF',
-      100: '#F5F5F5',
-      200: '#EEEEEE',
-      300: '#E0E0E0',
-      400: '#BDBDBD',
-      500: '#9E9E9E',
-      600: '#757575',
-      700: '#616161',
-      800: '#424242',
-      900: '#212121',
-    },
-    common: {
-      black: '#000000',
-      white: '#FFFFFF',
-    },
-    divider: 'rgba(255, 215, 0, 0.2)', // Gold divider with transparency
+    mode: 'dark',
+    primary: { main: VIOLET, light: '#9D86FF', dark: '#5B3EE8', contrastText: '#FFFFFF' },
+    secondary: { main: CYAN, light: '#67E8F9', dark: '#0E9AB5', contrastText: '#04121A' },
+    background: { default: BG, paper: SURFACE },
+    text: { primary: '#ECECF1', secondary: '#A1A1AA', disabled: 'rgba(255,255,255,0.4)' },
+    success: { main: '#22C55E' },
+    warning: { main: '#F59E0B' },
+    error: { main: '#EF4444' },
+    info: { main: CYAN },
+    divider: 'rgba(255,255,255,0.08)',
   },
   typography: {
-    fontFamily: [
-      'Space Grotesk',
-      'Inter',
-      '-apple-system',
-      'BlinkMacSystemFont',
-      '"Segoe UI"',
-      'Roboto',
-      '"Helvetica Neue"',
-      'Arial',
-      'sans-serif',
-    ].join(','),
-    h1: {
-      fontSize: '4rem',
-      fontWeight: 700,
-      lineHeight: 1.1,
-      letterSpacing: '-0.02em',
-      fontFamily: 'Space Grotesk, sans-serif',
-    },
-    h2: {
-      fontSize: '3rem',
-      fontWeight: 700,
-      lineHeight: 1.2,
-      letterSpacing: '-0.01em',
-      fontFamily: 'Space Grotesk, sans-serif',
-    },
-    h3: {
-      fontSize: '2.25rem',
-      fontWeight: 600,
-      lineHeight: 1.2,
-      fontFamily: 'Space Grotesk, sans-serif',
-    },
-    h4: {
-      fontSize: '1.875rem',
-      fontWeight: 600,
-      lineHeight: 1.3,
-      fontFamily: 'Space Grotesk, sans-serif',
-    },
-    h5: {
-      fontSize: '1.5rem',
-      fontWeight: 600,
-      lineHeight: 1.3,
-      fontFamily: 'Space Grotesk, sans-serif',
-    },
-    h6: {
-      fontSize: '1.25rem',
-      fontWeight: 600,
-      lineHeight: 1.4,
-      fontFamily: 'Space Grotesk, sans-serif',
-    },
-    body1: {
-      fontSize: '1.125rem',
-      fontWeight: 400,
-      lineHeight: 1.6,
-      fontFamily: 'Inter, sans-serif',
-    },
-    body2: {
-      fontSize: '1rem',
-      fontWeight: 400,
-      lineHeight: 1.5,
-      fontFamily: 'Inter, sans-serif',
-    },
-    button: {
-      fontSize: '1rem',
-      fontWeight: 600,
-      lineHeight: 1.5,
-      textTransform: 'none',
-      fontFamily: 'Inter, sans-serif',
-    },
+    fontFamily: ['Inter', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'].join(','),
+    h1: { fontSize: 'clamp(2.5rem, 6vw, 4rem)', fontWeight: 800, lineHeight: 1.05, letterSpacing: '-0.03em' },
+    h2: { fontSize: 'clamp(2rem, 4vw, 3rem)', fontWeight: 800, lineHeight: 1.1, letterSpacing: '-0.025em' },
+    h3: { fontSize: '2rem', fontWeight: 700, lineHeight: 1.15, letterSpacing: '-0.02em' },
+    h4: { fontSize: '1.5rem', fontWeight: 700, letterSpacing: '-0.015em' },
+    h5: { fontSize: '1.25rem', fontWeight: 700, letterSpacing: '-0.01em' },
+    h6: { fontSize: '1.05rem', fontWeight: 600 },
+    body1: { fontSize: '1rem', lineHeight: 1.65, color: '#C7C7D1' },
+    body2: { fontSize: '0.9rem', lineHeight: 1.6, color: '#A1A1AA' },
+    button: { fontWeight: 600, textTransform: 'none', letterSpacing: 0 },
+    overline: { letterSpacing: '0.12em', fontWeight: 700 },
   },
-  shape: {
-    borderRadius: 16,
-  },
+  shape: { borderRadius: 14 },
   shadows: [
-    'none',
-    '0px 4px 20px rgba(255, 215, 0, 0.1)',
-    '0px 8px 32px rgba(255, 215, 0, 0.15)',
-    '0px 12px 48px rgba(255, 215, 0, 0.2)',
-    '0px 16px 64px rgba(255, 215, 0, 0.25)',
-    '0px 20px 80px rgba(255, 215, 0, 0.3)',
-    '0px 24px 96px rgba(255, 215, 0, 0.35)',
-    '0px 28px 112px rgba(255, 215, 0, 0.4)',
-    '0px 32px 128px rgba(255, 215, 0, 0.45)',
-    '0px 36px 144px rgba(255, 215, 0, 0.5)',
-    '0px 40px 160px rgba(255, 215, 0, 0.55)',
-    '0px 44px 176px rgba(255, 215, 0, 0.6)',
-    '0px 48px 192px rgba(255, 215, 0, 0.65)',
-    '0px 52px 208px rgba(255, 215, 0, 0.7)',
-    '0px 56px 224px rgba(255, 215, 0, 0.75)',
-    '0px 60px 240px rgba(255, 215, 0, 0.8)',
-    '0px 64px 256px rgba(255, 215, 0, 0.85)',
-    '0px 68px 272px rgba(255, 215, 0, 0.9)',
-    '0px 72px 288px rgba(255, 215, 0, 0.95)',
-    '0px 76px 304px rgba(255, 215, 0, 1)',
-    '0px 80px 320px rgba(255, 215, 0, 1)',
-    '0px 84px 336px rgba(255, 215, 0, 1)',
-    '0px 88px 352px rgba(255, 215, 0, 1)',
-    '0px 92px 368px rgba(255, 215, 0, 1)',
-    '0px 96px 384px rgba(255, 215, 0, 1)',
+    'none', subtle, subtle, soft, soft, soft, soft, soft, soft, soft, soft, soft, soft,
+    soft, soft, soft, soft, soft, soft, soft, soft, soft, soft, soft, glow,
   ],
+  components: {
+    MuiCssBaseline: {
+      styleOverrides: {
+        body: {
+          backgroundColor: BG,
+          backgroundImage:
+            `radial-gradient(60% 50% at 50% 0%, ${alpha(VIOLET, 0.18)} 0%, transparent 60%),` +
+            `radial-gradient(40% 40% at 90% 10%, ${alpha(CYAN, 0.1)} 0%, transparent 60%)`,
+          backgroundAttachment: 'fixed',
+        },
+        '::selection': { background: alpha(VIOLET, 0.4) },
+      },
+    },
+    MuiButton: {
+      defaultProps: { disableElevation: true },
+      styleOverrides: {
+        root: { borderRadius: 10, paddingInline: 20, paddingBlock: 9 },
+        containedPrimary: {
+          background: `linear-gradient(135deg, ${VIOLET}, ${CYAN})`,
+          color: '#fff',
+          '&:hover': { background: `linear-gradient(135deg, ${VIOLET}, ${CYAN})`, filter: 'brightness(1.1)' },
+        },
+        outlined: { borderColor: 'rgba(255,255,255,0.16)', color: '#ECECF1', '&:hover': { borderColor: VIOLET, background: alpha(VIOLET, 0.08) } },
+      },
+    },
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          backgroundImage: 'none',
+          border: '1px solid rgba(255,255,255,0.08)',
+          backgroundColor: alpha('#16161F', 0.7),
+          backdropFilter: 'blur(12px)',
+        },
+      },
+    },
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          border: '1px solid rgba(255,255,255,0.08)',
+          backgroundColor: alpha('#16161F', 0.7),
+          backgroundImage: 'none',
+          backdropFilter: 'blur(12px)',
+        },
+      },
+    },
+    MuiChip: {
+      styleOverrides: {
+        root: { fontWeight: 600, borderRadius: 8 },
+        outlined: { borderColor: 'rgba(255,255,255,0.16)' },
+      },
+    },
+    MuiTextField: { defaultProps: { variant: 'outlined', size: 'small' } },
+    MuiOutlinedInput: {
+      styleOverrides: {
+        root: {
+          backgroundColor: 'rgba(255,255,255,0.03)',
+          '& fieldset': { borderColor: 'rgba(255,255,255,0.14)' },
+          '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.28)' },
+        },
+      },
+    },
+    MuiTableCell: { styleOverrides: { root: { borderColor: 'rgba(255,255,255,0.07)' } } },
+    MuiAppBar: { styleOverrides: { root: { backgroundImage: 'none' } } },
+  },
 });
 
 export default theme;
+export { VIOLET, CYAN, BG, SURFACE };

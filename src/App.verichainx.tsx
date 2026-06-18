@@ -1,19 +1,27 @@
 /**
- * VeriChain X Landing Page App
- * 
- * Main application component for the VeriChain X landing page
+ * VeriChainX — app shell with routing.
+ *   /        landing page
+ *   /admin   operations dashboard
  */
 
 import React from 'react';
 import { ThemeProvider, CssBaseline } from '@mui/material';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import theme from './theme';
-import { LandingPage } from './components/LandingPage';
+import { LandingPage } from './pages/LandingPage';
+import { AdminPage } from './pages/AdminPage';
 
 function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <LandingPage />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/admin" element={<AdminPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
     </ThemeProvider>
   );
 }

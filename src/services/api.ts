@@ -348,20 +348,21 @@ class VeriChainXApiService {
     }
   }
 
-  // Product Analysis
-  async analyzeProduct(productData: {
-    name: string;
+  // Product Analysis — matches the backend ProductAnalysisRequest/AnalysisResponse.
+  async analyzeProduct(input: {
+    product_name: string;
     description: string;
-    images?: string[];
-    price?: number;
-    seller?: string;
-  }) {
-    try {
-      const response = await this.client.post('/api/v1/products/analyze', productData);
-      return response.data.data;
-    } catch (error) {
-      throw new Error('Failed to analyze product');
-    }
+    price: number;
+    category?: string;
+  }): Promise<any> {
+    const response = await this.client.post('/api/v1/products/analyze', {
+      product_name: input.product_name,
+      description: input.description,
+      price: input.price,
+      category: input.category || 'Electronics',
+    });
+    // Backend returns the AnalysisResponse directly; tolerate a wrapped shape too.
+    return response.data?.data ?? response.data;
   }
 
   // Health Check
