@@ -11,72 +11,22 @@
     {
       "src": "main_tidb.py",
       "use": "@vercel/python"
-    },
-    {
-      "src": "api/hedera/ai-studio-agent.ts",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "api/hedera/natural-language.ts",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "api/hedera/status.ts",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "api/hedera/test-connection.ts",
-      "use": "@vercel/node"
     }
   ],
   "routes": [
-    {
-      "src": "/api/hedera/(.*)",
-      "dest": "/api/hedera/$1"
-    },
-    {
-      "src": "/api/(.*)",
-      "dest": "main_tidb.py"
-    },
-    {
-      "src": "/docs",
-      "dest": "main_tidb.py"
-    },
-    {
-      "src": "/redoc",
-      "dest": "main_tidb.py"
-    },
-    {
-      "src": "/health",
-      "dest": "main_tidb.py"
-    },
-    {
-      "src": "/dashboard",
-      "dest": "main_tidb.py"
-    },
-    {
-      "src": "/agents",
-      "dest": "main_tidb.py"
-    },
-    {
-      "src": "/analyze",
-      "dest": "main_tidb.py"
-    },
-    {
-      "src": "/assets/(.*)",
-      "dest": "/assets/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
-    }
+    { "src": "/api/(.*)", "dest": "main_tidb.py" },
+    { "src": "/docs", "dest": "main_tidb.py" },
+    { "src": "/redoc", "dest": "main_tidb.py" },
+    { "src": "/openapi.json", "dest": "main_tidb.py" },
+    { "src": "/health", "dest": "main_tidb.py" },
+    { "src": "/livez", "dest": "main_tidb.py" },
+    { "src": "/assets/(.*)", "dest": "/assets/$1" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ],
   "env": {
     "VITE_API_BASE_URL": "https://verichain-x-hedera.vercel.app",
-    "NODE_ENV": "production",
     "PYTHONPATH": ".",
     "ENVIRONMENT": "production",
-    "DEBUG": "false",
     "HACKATHON_MODE": "true",
     "HEDERA_NETWORK": "testnet"
   }
