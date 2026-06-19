@@ -1,49 +1,18 @@
-[build-system]
-requires = ["setuptools>=45", "wheel"]
-build-backend = "setuptools.build_meta"
-
-[project]
-name = "counterfeit-detection"
-version = "1.0.0"
-description = "Counterfeit Product Detection & Supply Chain Intelligence System"
-authors = [{name = "Counterfeit Detection Team"}]
-readme = "README.md"
-requires-python = ">=3.11"
-dependencies = [
-    "fastapi==0.104.1",
-    "uvicorn[standard]==0.24.0",
-    "sqlalchemy==2.0.23",
-    "redis==5.0.1",
-    "openai==1.3.7",
-    "anthropic==0.7.8",
-    "sentence-transformers==2.2.2",
-    "pydantic==2.0.5",
-    "pydantic-settings==2.1.0",
-    "python-dotenv==1.0.0",
-    "aiomysql==0.2.0",
-    "cryptography==41.0.7",
-    "httpx==0.25.2",
-    "python-multipart==0.0.6",
-    "structlog==23.2.0",
-    "slowapi==0.1.9"
-]
-
-[project.optional-dependencies]
-dev = [
-    "pytest==7.4.3",
-    "pytest-asyncio==0.21.1",
-    "pytest-cov==4.1.0",
-    "black==23.11.0",
-    "isort==5.12.0",
-    "flake8==6.1.0",
-    "mypy==1.7.1",
-    "pre-commit==3.6.0"
-]
+# NOTE: This file intentionally has NO [project] table.
+#
+# The deployed backend is main_tidb.py, whose dependencies live in
+# requirements.txt. Vercel's @vercel/python uses `uv`, which would otherwise try
+# to resolve/install this file's [project] dependencies — the heavy, pinned
+# counterfeit_detection set (sentence-transformers, torch, pydantic==2.0.5, …)
+# that is both unsatisfiable and far over Vercel's serverless size limit.
+# Removing [project] makes @vercel/python fall back to requirements.txt.
+#
+# Only local dev-tool configuration is kept below. To work on the original
+# src/counterfeit_detection package, install its deps from requirements-dev.txt.
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-addopts = "--cov=src/counterfeit_detection --cov-report=html --cov-report=term-missing"
 
 [tool.black]
 line-length = 88
@@ -51,12 +20,9 @@ target-version = ['py311']
 include = '\.pyi?$'
 extend-exclude = '''
 /(
-  # directories
-  \.eggs
+  | \.eggs
   | \.git
-  | \.hg
   | \.mypy_cache
-  | \.tox
   | \.venv
   | build
   | dist
@@ -73,5 +39,4 @@ known_first_party = ["counterfeit_detection"]
 python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
-disallow_untyped_defs = true
 ignore_missing_imports = true
