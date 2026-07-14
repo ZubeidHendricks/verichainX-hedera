@@ -18,6 +18,7 @@ import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import LaunchIcon from '@mui/icons-material/Launch';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import IosShareIcon from '@mui/icons-material/IosShare';
+import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium';
 import { QRCodeSVG } from 'qrcode.react';
 import { apiService, ProductDetail } from '../services/api';
 import { VIOLET, CYAN } from '../theme';
@@ -131,16 +132,19 @@ export const VerifyPage: React.FC = () => {
   }, [id]);
 
   const pageUrl = useMemo(() => (typeof window !== 'undefined' ? window.location.href : ''), []);
+  // Share the /s/ URL: it serves OG meta so links unfurl as verdict cards,
+  // then forwards humans straight back to this page.
+  const shareUrl = useMemo(() => (typeof window !== 'undefined' && id ? `${window.location.origin}/s/${id}` : ''), [id]);
   const verdict = product ? verdictOf(product) : null;
   const meta = verdict ? VERDICT_META[verdict] : null;
   const score = product ? Math.round(product.authenticity_score * 100) : 0;
 
   const copyLink = async () => {
-    try { await navigator.clipboard.writeText(pageUrl); setCopied(true); } catch { /* clipboard unavailable */ }
+    try { await navigator.clipboard.writeText(shareUrl || pageUrl); setCopied(true); } catch { /* clipboard unavailable */ }
   };
   const share = async () => {
     if (navigator.share && product) {
-      try { await navigator.share({ title: `${product.name} — VeriChainX verdict`, url: pageUrl }); } catch { /* cancelled */ }
+      try { await navigator.share({ title: `${product.name} — VeriChainX verdict`, url: shareUrl || pageUrl }); } catch { /* cancelled */ }
     } else copyLink();
   };
 
@@ -267,6 +271,9 @@ export const VerifyPage: React.FC = () => {
                     <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
                       <Button size="small" variant="outlined" startIcon={<ContentCopyIcon />} onClick={copyLink}>Copy link</Button>
                       <Button size="small" variant="outlined" startIcon={<IosShareIcon />} onClick={share}>Share</Button>
+                      <Button component={RouterLink} to={`/certificate/${product.id}`} size="small" variant="outlined" startIcon={<WorkspacePremiumIcon />}>
+                        {verdict === 'counterfeit' ? 'Get report' : 'Certificate'}
+                      </Button>
                     </Stack>
                   </Stack>
                 </Stack>

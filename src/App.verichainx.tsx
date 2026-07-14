@@ -12,6 +12,7 @@ import theme from './theme';
 import { LandingPage } from './pages/LandingPage';
 import { AdminPage } from './pages/AdminPage';
 import { VerifyPage } from './pages/VerifyPage';
+import { CertificatePage } from './pages/CertificatePage';
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/verify/:id" element={<VerifyPage />} />
+          <Route path="/certificate/:id" element={<CertificatePage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

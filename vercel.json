@@ -15,6 +15,7 @@
   ],
   "routes": [
     { "src": "/api/(.*)", "dest": "main_tidb.py" },
+    { "src": "/s/(.*)", "dest": "main_tidb.py" },
     { "src": "/docs", "dest": "main_tidb.py" },
     { "src": "/redoc", "dest": "main_tidb.py" },
     { "src": "/openapi.json", "dest": "main_tidb.py" },

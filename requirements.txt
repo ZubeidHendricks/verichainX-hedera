@@ -7,3 +7,5 @@ pydantic==2.11.7
 requests==2.32.3
 python-multipart==0.0.18
 aiohttp==3.10.11
+pillow==11.3.0
+

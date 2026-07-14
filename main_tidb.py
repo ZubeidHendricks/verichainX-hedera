@@ -2427,6 +2427,126 @@ async def get_product_detail(product_id: int):
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 
+def _load_product_summary(product_id: int) -> Optional[Dict[str, Any]]:
+    """Lightweight product fetch shared by the OG-card and share-shim routes."""
+    conn = get_tidb_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id, name, authenticity_score, is_counterfeit, brand FROM products WHERE id = %s",
+        (product_id,),
+    )
+    p = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    if not p:
+        return None
+    return {
+        "id": p[0],
+        "name": p[1],
+        "score": round(float(p[2] or 0) * 100),
+        "is_counterfeit": bool(p[3]),
+        "brand": p[4] or "",
+    }
+
+
+def _og_verdict(p: Dict[str, Any]) -> Dict[str, str]:
+    if p["is_counterfeit"]:
+        return {"label": "LIKELY COUNTERFEIT", "color": (239, 68, 68)}
+    if p["score"] >= 80:
+        return {"label": "AUTHENTIC", "color": (34, 197, 94)}
+    return {"label": "NEEDS REVIEW", "color": (245, 158, 11)}
+
+
+@app.get("/api/v1/og/{product_id}.png", tags=["products"])
+async def og_card(product_id: int):
+    """1200x630 Open Graph verdict card, rendered with Pillow. Used as the
+    og:image for shared verification links so they unfurl as verdict cards."""
+    from fastapi.responses import Response as RawResponse
+    from PIL import Image, ImageDraw, ImageFont
+
+    p = _load_product_summary(product_id)
+    if not p:
+        raise HTTPException(status_code=404, detail="Product not found")
+    v = _og_verdict(p)
+
+    W, H = 1200, 630
+    img = Image.new("RGB", (W, H), (10, 10, 15))
+    d = ImageDraw.Draw(img)
+
+    def font(size: int, bold: bool = True):
+        try:
+            path = os.path.join(os.path.dirname(__file__), "assets", "fonts",
+                                "Inter-Bold.ttf" if bold else "Inter-Regular.ttf")
+            return ImageFont.truetype(path, size)
+        except Exception:
+            return ImageFont.load_default(size)
+
+    # Verdict color band along the top edge
+    d.rectangle([0, 0, W, 14], fill=v["color"])
+    # Brand row
+    d.rounded_rectangle([64, 58, 64 + 44, 58 + 44], radius=12, fill=(124, 92, 255))
+    d.text((64 + 22, 58 + 20), "◆", font=font(24), fill=(255, 255, 255), anchor="mm")
+    d.text((124, 80), "VeriChainX", font=font(30), fill=(236, 236, 241), anchor="lm")
+    d.text((124 + 190, 82), "AUTHENTICITY RECORD", font=font(17, bold=False), fill=(161, 161, 170), anchor="lm")
+
+    # Verdict + product name
+    d.text((64, 210), v["label"], font=font(64), fill=v["color"], anchor="lm")
+    name = p["name"] if len(p["name"]) <= 38 else p["name"][:37] + "…"
+    d.text((64, 300), name, font=font(48), fill=(236, 236, 241), anchor="lm")
+    if p["brand"]:
+        d.text((64, 356), p["brand"], font=font(26, bold=False), fill=(161, 161, 170), anchor="lm")
+
+    # Score block
+    d.text((64, 470), str(p["score"]), font=font(110), fill=v["color"], anchor="lm")
+    score_w = d.textlength(str(p["score"]), font=font(110))
+    d.text((64 + score_w + 18, 496), "/100\nTRUST SCORE", font=font(22, bold=False), fill=(161, 161, 170), anchor="lm")
+
+    # Footer
+    d.text((64, 584), f"Record #{p['id']} · Anchored on Hedera · verify without an account",
+           font=font(20, bold=False), fill=(120, 120, 132), anchor="lm")
+
+    import io
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return RawResponse(content=buf.getvalue(), media_type="image/png",
+                       headers={"Cache-Control": "public, max-age=3600"})
+
+
+@app.get("/s/{product_id}", tags=["products"], include_in_schema=False)
+async def share_shim(product_id: int):
+    """Share URL for verification records. Crawlers read the OG tags and unfurl
+    a verdict card; humans are forwarded to the SPA passport page."""
+    base = os.getenv("PUBLIC_BASE_URL", "https://verichain-x-hedera.vercel.app").rstrip("/")
+    target = f"{base}/verify/{product_id}"
+    try:
+        p = _load_product_summary(product_id)
+    except Exception:
+        p = None
+    if not p:
+        return HTMLResponse(f'<meta http-equiv="refresh" content="0;url={target}">', status_code=200)
+    v = _og_verdict(p)
+    title = f"{v['label'].title()} — {p['name']}"
+    desc = f"VeriChainX AI verdict: trust score {p['score']}/100, anchored on Hedera. Check it yourself — no account needed."
+    return HTMLResponse(f"""<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>{title}</title>
+<meta property="og:type" content="website">
+<meta property="og:title" content="{title}">
+<meta property="og:description" content="{desc}">
+<meta property="og:image" content="{base}/api/v1/og/{p['id']}.png">
+<meta property="og:url" content="{target}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{title}">
+<meta name="twitter:description" content="{desc}">
+<meta name="twitter:image" content="{base}/api/v1/og/{p['id']}.png">
+<meta http-equiv="refresh" content="0;url={target}">
+</head><body>
+<p>Redirecting to <a href="{target}">the verification record</a>…</p>
+<script>window.location.replace({json.dumps(target)});</script>
+</body></html>""")
+
+
 @app.get("/api/v1/analytics/dashboard", tags=["analytics"])
 async def get_dashboard_analytics():
     """Real-time analytics using TiDB HTAP capabilities"""
