@@ -61,6 +61,46 @@ export interface HederaStats {
   uptime: string;
 }
 
+export interface AnchorRecord {
+  topic_id?: string;
+  sequence_number?: number;
+  transaction_id?: string;
+  consensus_timestamp?: string;
+  explorer_url?: string;
+  network?: string;
+  anchored_at?: string;
+}
+
+export interface ProductDetail {
+  id: number;
+  name: string;
+  description: string;
+  price: number;
+  seller_name: string;
+  authenticity_score: number;
+  is_counterfeit: boolean;
+  brand: string;
+  category: string;
+  ai_analysis: string;
+  evidence: string[];
+  created_at: string | null;
+  network: string;
+  anchor: AnchorRecord | null;
+}
+
+export interface AnchorResult {
+  success: boolean;
+  anchored: boolean;
+  topicId?: string;
+  sequenceNumber?: number;
+  transactionId?: string;
+  consensusTimestamp?: string;
+  explorerUrl?: string;
+  network?: string;
+  reason?: string;
+  error?: string;
+}
+
 class VeriChainXApiService {
   private client: AxiosInstance;
 
@@ -363,6 +403,23 @@ class VeriChainXApiService {
     });
     // Backend returns the AnalysisResponse directly; tolerate a wrapped shape too.
     return response.data?.data ?? response.data;
+  }
+
+  // Public authenticity record — powers the /verify/:id passport page.
+  async getProduct(productId: string | number): Promise<ProductDetail> {
+    const response = await this.client.get(`/api/v1/products/${productId}`);
+    return response.data?.data ?? response.data;
+  }
+
+  // Anchor a verdict to the Hedera Consensus Service via the backend proxy.
+  async anchorProduct(input: {
+    productId: number;
+    productName: string;
+    verdict: string;
+    score: number;
+  }): Promise<AnchorResult> {
+    const response = await this.client.post('/api/v1/hedera/anchor', input);
+    return response.data;
   }
 
   // Health Check

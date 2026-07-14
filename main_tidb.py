@@ -2304,6 +2304,7 @@ async def analyze_product(request: ProductAnalysisRequest, background_tasks: Bac
             blockchain_audit_id=enhanced_result.get("blockchain_audit_id"),
             nft_certificate=enhanced_result.get("nft_certificate"),
             verification_url=enhanced_result.get("verification_url")
+            or f"{os.getenv('PUBLIC_BASE_URL', 'https://verichain-x-hedera.vercel.app').rstrip('/')}/verify/{product_id}"
         )
         
     except Exception as e:
@@ -2350,6 +2351,81 @@ async def get_products(limit: int = 10, counterfeit_only: bool = False):
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
+@app.get("/api/v1/products/{product_id}", tags=["products"])
+async def get_product_detail(product_id: int):
+    """Public authenticity record for one product — powers the /verify/{id} page.
+
+    No auth: this is the consumer-facing verification surface. Includes the
+    latest HCS anchor (if the verdict was anchored) so the page can deep-link
+    to HashScan.
+    """
+    try:
+        conn = get_tidb_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT id, name, description, price, seller_name, authenticity_score,
+                   is_counterfeit, brand, category, ai_analysis, evidence, created_at
+            FROM products WHERE id = %s
+            """,
+            (product_id,),
+        )
+        p = cursor.fetchone()
+        if not p:
+            cursor.close()
+            conn.close()
+            raise HTTPException(status_code=404, detail=f"Product {product_id} not found")
+
+        anchor = None
+        try:
+            cursor.execute(
+                """
+                SELECT analysis_text, created_at FROM analysis_results
+                WHERE product_id = %s AND analysis_type = 'hcs_anchor'
+                ORDER BY created_at DESC LIMIT 1
+                """,
+                (product_id,),
+            )
+            row = cursor.fetchone()
+            if row and row[0]:
+                anchor = json.loads(row[0])
+                anchor["anchored_at"] = row[1].isoformat() if row[1] else None
+        except Exception as e:
+            logger.warning("product %s: could not load anchor record: %s", product_id, e)
+
+        cursor.close()
+        conn.close()
+
+        try:
+            evidence = json.loads(p[10]) if p[10] else []
+        except Exception:
+            evidence = []
+
+        return {
+            "data": {
+                "id": p[0],
+                "name": p[1],
+                "description": p[2],
+                "price": float(p[3] or 0),
+                "seller_name": p[4],
+                "authenticity_score": float(p[5] or 0),
+                "is_counterfeit": bool(p[6]),
+                "brand": p[7],
+                "category": p[8],
+                "ai_analysis": p[9],
+                "evidence": evidence,
+                "created_at": p[11].isoformat() if p[11] else None,
+                "network": hedera_mirror._NETWORK,
+                "anchor": anchor,
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
 
 @app.get("/api/v1/analytics/dashboard", tags=["analytics"])
 async def get_dashboard_analytics():
@@ -2656,10 +2732,44 @@ async def anchor_verification(payload: Dict[str, Any]):
                 timeout=aiohttp.ClientTimeout(total=25),
             ) as resp:
                 data = await resp.json()
-                return {"success": resp.status == 200, "anchored": bool(data.get("success")), **data}
+                anchored = resp.status == 200 and bool(data.get("success"))
+                if anchored and payload.get("productId"):
+                    _persist_anchor_record(payload["productId"], data)
+                return {"success": resp.status == 200, "anchored": anchored, **data}
     except Exception as e:
         logger.warning("hedera anchor proxy failed: %s", e)
         return {"success": False, "anchored": False, "reason": str(e)}
+
+
+def _persist_anchor_record(product_id: Any, anchor: Dict[str, Any]) -> None:
+    """Store a successful HCS anchor in analysis_results (type 'hcs_anchor') so
+    the public verification page can render the on-chain proof. Best-effort:
+    the anchor already exists on-chain even if this bookkeeping write fails."""
+    try:
+        record = {
+            "topic_id": anchor.get("topicId"),
+            "sequence_number": anchor.get("sequenceNumber"),
+            "transaction_id": anchor.get("transactionId"),
+            "consensus_timestamp": anchor.get("consensusTimestamp"),
+            "explorer_url": anchor.get("explorerUrl"),
+            "network": anchor.get("network"),
+        }
+        conn = get_tidb_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO analysis_results
+            (product_id, analysis_type, confidence_score, ai_model, analysis_text,
+             evidence, processing_time_ms, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (int(product_id), "hcs_anchor", 1.0, "hedera-hcs", json.dumps(record), "[]", 0, datetime.now()),
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        logger.warning("could not persist anchor record for product %s: %s", product_id, e)
 
 
 @app.get("/api/v1/analytics/detection", tags=["analytics"])

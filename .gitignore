@@ -328,3 +328,4 @@ geth/
 # BMAD method framework (separate repository)
 bmad-method/
 .vercel
+.env*

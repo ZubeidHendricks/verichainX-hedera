@@ -22,7 +22,7 @@ const features = [
   { icon: <HubIcon />, title: 'Hedera consensus anchoring', body: 'Verdicts are anchored to the Hedera Consensus Service — immutable, timestamped, verifiable.' },
   { icon: <TokenIcon />, title: 'Authenticity NFTs', body: 'Mint Hedera Token Service certificates that travel with a product across its lifecycle.' },
   { icon: <BoltIcon />, title: 'TiDB HTAP backend', body: 'Vector search + analytics on a single distributed SQL engine — fast at any scale.' },
-  { icon: <VerifiedUserIcon />, title: 'On-chain proof', body: 'Every record links to HashScan so anyone can independently verify it on the network.' },
+  { icon: <VerifiedUserIcon />, title: 'Public verification pages', body: 'Every verdict gets a shareable QR-coded record page linking to HashScan — anyone can verify it, no account needed.' },
 ];
 
 const Nav = () => (
