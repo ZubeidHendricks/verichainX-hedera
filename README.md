@@ -1,489 +1,115 @@
-# 🛡️ Agentic Counterfeit Detection System
+# ◆ VeriChainX — AI counterfeit detection, verified on Hedera
 
+[![Live](https://img.shields.io/badge/live-verichain--x--hedera.vercel.app-7C5CFF)](https://verichain-x-hedera.vercel.app)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-00a393.svg)](https://fastapi.tiangolo.com)
-[![React](https://img.shields.io/badge/React-18+-61dafb.svg)](https://reactjs.org)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
+[![React 19](https://img.shields.io/badge/React-19-61dafb.svg)](https://react.dev)
 
-An enterprise-grade AI-powered counterfeit detection system that uses multi-agent orchestration, vector embeddings, LLM analysis, and zkSNARK cryptographic proofs to identify and prevent counterfeit products across e-commerce platforms.
+VeriChainX analyzes product listings with multi-agent AI, scores their authenticity, and anchors every verdict to the **Hedera Consensus Service** — so anyone can verify a product without an account, and nobody (including us) can rewrite the verdict afterwards.
 
-## 🚀 Key Features
+**Try it live:**
 
-### Core Detection Capabilities
-- **🤖 Multi-Agent AI System** - Orchestrated AI agents for comprehensive analysis
-- **🔍 LLM-Powered Analysis** - Advanced authenticity scoring using Claude/GPT models  
-- **📊 Vector Embedding Search** - Semantic similarity detection for product matching
-- **⚡ Rule-Based Detection** - Dynamic rule engine for rapid identification
-- **📱 Real-Time Monitoring** - Continuous marketplace surveillance
+| Surface | URL |
+|---|---|
+| App + landing | https://verichain-x-hedera.vercel.app |
+| Operations dashboard | https://verichain-x-hedera.vercel.app/admin |
+| Example public record | https://verichain-x-hedera.vercel.app/verify/390002 |
+| Example certificate | https://verichain-x-hedera.vercel.app/certificate/390002 |
+| Example share card (OG image) | https://verichain-x-hedera.vercel.app/api/v1/og/390002.png |
+| API docs | https://verichain-x-hedera.vercel.app/docs |
 
-### Enterprise Security
-- **🔐 zkSNARK Cryptographic Proofs** - Zero-knowledge proof verification for maximum security
-- **🔗 Immutable Audit Trails** - Blockchain-anchored audit logs with Merkle tree verification
-- **📋 Regulatory Compliance** - SOC 2, GDPR, and industry compliance reporting
-- **🏢 Enterprise Integration** - ServiceNow GRC, SAP GRC, MetricStream connectivity
+## The consumer flow
 
-### Advanced Features
-- **🏪 Brand Registration System** - Verified brand portal with document management
-- **📧 Multi-Channel Alerts** - Email, SMS, Slack, webhook notifications
-- **⚖️ Automated Enforcement** - Takedown requests with appeals workflow
-- **📈 Analytics Dashboard** - Real-time metrics and performance monitoring
-- **🔄 High-Performance Caching** - Redis-backed proof verification optimization
+1. **Analyze** — submit a product (name, description, price, category) in the dashboard. A multi-provider LLM cascade (OpenAI → Gemini → Claude → heuristics) scores authenticity and explains its evidence.
+2. **Anchor** — one click submits the verdict to a Hedera Consensus Service topic via the hedera-service. Immutable, timestamped, publicly auditable.
+3. **Verify** — every product gets a public passport page at `/verify/:id`: animated trust score, the AI's reasoning, a provenance timeline, and a HashScan deep link to the on-chain proof. No login. Mobile-first, because the entry point is a **QR code** printed on a label.
+4. **Share** — share links (`/s/:id`) unfurl into branded verdict cards in Slack/X/WhatsApp (server-rendered OG images). Authentic products get a printable **Certificate of Authenticity**; flagged ones get a **Counterfeit Verification Report** a buyer can attach to a refund or takedown claim.
 
-## 🏗️ Architecture Overview
+## Architecture
 
 ```mermaid
-graph TB
-    subgraph "Frontend Layer"
-        UI[Admin Dashboard UI]
-        Mobile[Mobile App]
+graph LR
+    subgraph "Vercel"
+        SPA[React SPA<br/>Vite + MUI dark theme]
+        API[FastAPI<br/>main_tidb.py]
     end
-    
-    subgraph "API Layer"
-        API[FastAPI REST API]
-        WS[WebSocket Gateway]
+    subgraph "DigitalOcean"
+        HS[hedera-service<br/>Node/Express + Hashgraph SDK]
     end
-    
-    subgraph "Agent Layer"
-        Orch[Orchestrator Agent]
-        Auth[Authenticity Analyzer]
-        Rules[Rule Engine]
-        Notif[Notification Agent]
-        Enf[Enforcement Agent]
-    end
-    
-    subgraph "Services Layer"
-        ZK[zkSNARK Service]
-        Embed[Embedding Service]
-        Brand[Brand Service]
-        Audit[Audit Trail Service]
-        Cache[Proof Cache]
-    end
-    
-    subgraph "Data Layer"
-        PG[(PostgreSQL)]
-        Vec[(Vector DB)]
-        Redis[(Redis Cache)]
-        BC[Blockchain Anchor]
-    end
-    
-    UI --> API
-    Mobile --> API
-    API --> Orch
-    Orch --> Auth
-    Orch --> Rules
-    Orch --> Notif
-    Orch --> Enf
-    Auth --> ZK
-    Auth --> Embed
-    Services --> PG
-    Services --> Vec
-    Services --> Redis
-    Audit --> BC
+    TiDB[(TiDB Cloud<br/>products + analyses)]
+    LLM[LLM cascade<br/>OpenAI / Gemini / Claude]
+    HCS[Hedera Consensus Service]
+    Mirror[Hedera Mirror Node<br/>public REST]
+
+    SPA --> API
+    API --> TiDB
+    API --> LLM
+    API -->|/anchor proxy| HS --> HCS
+    API --> Mirror
 ```
 
-## 🛠️ Tech Stack
+- **Frontend** (`src/`, entry `main.tsx`): React 19 + MUI, three public routes (`/`, `/verify/:id`, `/certificate/:id`) plus the `/admin` dashboard (analyze, results, agent monitor, live Hedera panel).
+- **API** (`main_tidb.py`): FastAPI on Vercel Python. AI analysis, TiDB persistence, public record endpoints, OG card rendering (Pillow), and real network data from the public Hedera Mirror Node with HashScan links.
+- **hedera-service** (`hedera-service/`): the only component holding Hedera operator keys. Creates/reuses an HCS topic and submits verdict messages (`POST /api/v1/hedera/anchor`).
 
-### Backend
-- **Python 3.11+** - Core application runtime
-- **FastAPI** - High-performance async web framework
-- **SQLAlchemy 2.0** - Modern async ORM
-- **PostgreSQL 15+** - Primary database with vector extensions
-- **Redis 7+** - Caching and session management
-- **Celery** - Distributed task processing
+## Key API endpoints
 
-### AI & ML
-- **OpenAI GPT-4** - Primary LLM for authenticity analysis
-- **Anthropic Claude** - Secondary LLM for analysis diversity
-- **Sentence Transformers** - Vector embeddings generation
-- **pgvector** - Vector similarity search in PostgreSQL
+```http
+POST /api/v1/products/analyze      # AI verdict + TiDB persistence
+GET  /api/v1/products              # recent analyses
+GET  /api/v1/products/{id}         # public record (powers /verify/:id)
+POST /api/v1/hedera/anchor         # anchor a verdict to HCS (proxies hedera-service)
+GET  /api/v1/hedera/transactions   # real testnet txs w/ HashScan links
+GET  /api/v1/hedera/network        # live supply + node count (Mirror Node)
+GET  /api/v1/og/{id}.png           # 1200x630 verdict card (OG image)
+GET  /s/{id}                       # share shim: OG meta for crawlers, redirect for humans
+GET  /api/v1/analytics/dashboard   # aggregate stats
+```
 
-### Cryptographic Security
-- **Circom 2.0** - zkSNARK circuit development
-- **snarkjs** - Proof generation and verification
-- **Web3.py** - Blockchain integration for audit anchoring
-- **cryptography** - Enterprise-grade cryptographic operations
+## Running locally
 
-### Frontend
-- **React 18** - Modern UI framework
-- **TypeScript** - Type-safe development
-- **Vite** - Fast build tooling
-- **Tailwind CSS** - Utility-first styling
-- **Recharts** - Data visualization
-
-### DevOps & Infrastructure
-- **Docker & Docker Compose** - Containerization
-- **Kubernetes** - Container orchestration
-- **GitHub Actions** - CI/CD pipelines
-- **Prometheus & Grafana** - Monitoring and observability
-
-## 📋 Prerequisites
-
-- **Python 3.11+**
-- **Node.js 18+**
-- **PostgreSQL 15+** with pgvector extension
-- **Redis 7+**
-- **Docker & Docker Compose** (recommended)
-
-### For zkSNARK Features (Optional)
-- **Circom 2.0**
-- **snarkjs CLI**
-- **Trusted setup files**
-
-## 🚀 Quick Start
-
-### 1. Clone the Repository
 ```bash
 git clone https://github.com/ZubeidHendricks/verichainX-hedera.git
 cd verichainX-hedera
-```
 
-### 2. Environment Setup
-```bash
-# Copy environment template
-cp .env.example .env
-
-# Edit configuration
-nano .env
-```
-
-### 3. Quick Deploy to Digital Ocean (Recommended)
-
-#### Option A: App Platform (5 minutes)
-```bash
-# Deploy via Digital Ocean Console:
-# 1. Go to https://cloud.digitalocean.com/apps
-# 2. Create App from GitHub
-# 3. Select: ZubeidHendricks/verichainX-hedera
-# 4. Use .do/app.yaml configuration
-# 5. Set your API keys in environment variables
-# 6. Deploy!
-```
-
-#### Option B: Droplet Deployment (15 minutes)
-```bash
-# Make deployment script executable
-chmod +x deploy-to-do.sh
-
-# Run automated deployment
-./deploy-to-do.sh
-```
-
-#### Option C: Local Docker Deployment
-```bash
-# Start all services locally
-docker-compose up -d
-
-# Initialize database
-docker-compose exec api python -m alembic upgrade head
-
-# Create initial admin user
-docker-compose exec api python -m counterfeit_detection.scripts.create_admin
-```
-
-### 4. Manual Development Setup
-```bash
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# venv\Scripts\activate    # Windows
-
-# Install dependencies
-pip install -r requirements.txt
-pip install -r requirements-dev.txt
-
-# Set up database
-createdb counterfeit_detection
-python -m alembic upgrade head
-
-# Install frontend dependencies
-cd src/frontend/admin-dashboard
+# Frontend (Vite dev server)
 npm install
-npm run build
-cd ../../..
+npm run dev
 
-# Start services
-python -m counterfeit_detection.main
+# API (needs Python 3.12 + TiDB credentials)
+pip install -r requirements.txt
+uvicorn main_tidb:app --reload --port 8000
+
+# hedera-service (needs Hedera testnet operator credentials)
+cd hedera-service && npm install && npm run dev
 ```
 
-## 🔧 Configuration
+### Environment variables
 
-### Environment Variables
+| Component | Variable | Purpose |
+|---|---|---|
+| API | `TIDB_HOST` / `TIDB_PORT` / `TIDB_USER` / `TIDB_PASSWORD` / `TIDB_DATABASE` | TiDB Cloud connection (required) |
+| API | `OPENAI_API_KEY` (+ optional `GEMINI_API_KEY`, `GROQ_API_KEY`) | LLM cascade |
+| API | `HEDERA_NETWORK` | `testnet` (default) or `mainnet` |
+| API | `HEDERA_SERVICE_URL` | Deployed hedera-service base URL (enables anchoring) |
+| API | `PUBLIC_BASE_URL` | Canonical URL used in share links / QR codes |
+| hedera-service | `HEDERA_ACCOUNT_ID` / `HEDERA_PRIVATE_KEY` | Testnet operator (get one at [portal.hedera.com](https://portal.hedera.com)) |
+| hedera-service | `HEDERA_TOPIC_ID` | Optional: reuse one HCS topic instead of creating on first anchor |
+| Frontend | `VITE_API_BASE_URL` | API origin (defaults to production) |
 
-```bash
-# Core Application
-API_HOST=0.0.0.0
-API_PORT=8000
-DEBUG=false
-SECRET_KEY=your-secret-key-here
+## Deployment
 
-# Database
-DATABASE_URL=postgresql://user:password@localhost:5432/counterfeit_detection
-REDIS_URL=redis://localhost:6379/0
+- **Vercel** (frontend + API): push to `main` — the Git integration builds and promotes automatically. `vercel.json` defines the static build, the Python function, and routing. Note: do **not** add a `pyproject.toml` without a `[project]` table; Vercel's uv-based Python builder fails on it.
+- **DigitalOcean App Platform** (hedera-service): deploys `/hedera-service` on push to `main`.
 
-# AI Services
-OPENAI_API_KEY=your-openai-api-key
-ANTHROPIC_API_KEY=your-anthropic-api-key
+## Repo layout notes
 
-# Vector Embeddings
-EMBEDDING_MODEL=all-MiniLM-L6-v2
-VECTOR_DIMENSIONS=384
+The shipped product is the SPA + `main_tidb.py` + `hedera-service/`. The `src/counterfeit_detection/` tree is an earlier, more ambitious multi-agent Python system (vector search, zk-proof experiments, enforcement workflows) that is **not** wired into the deployed app — kept for reference. Its dev-tool config lives in `pytest.ini` / `mypy.ini` / `.isort.cfg`.
 
-# zkSNARK Configuration (Optional)
-ZKSNARK_ENABLED=true
-CIRCUITS_PATH=/opt/circuits
-TRUSTED_SETUP_PATH=/opt/trusted-setup
+## License
 
-# Enterprise Integration
-SERVICENOW_URL=your-servicenow-instance
-SERVICENOW_USERNAME=your-username
-SERVICENOW_PASSWORD=your-password
-
-# Blockchain Anchoring
-ETHEREUM_RPC_URL=https://mainnet.infura.io/v3/your-project-id
-ANCHOR_PRIVATE_KEY=your-private-key
-
-# Notification Services
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USERNAME=your-email@gmail.com
-SMTP_PASSWORD=your-app-password
-SLACK_WEBHOOK_URL=your-slack-webhook-url
-```
-
-### API Documentation
-
-Once the application is running, visit:
-- **API Documentation**: http://localhost:8000/docs
-- **Alternative Docs**: http://localhost:8000/redoc
-- **Admin Dashboard**: http://localhost:8000/admin
-
-### Key API Endpoints
-
-```http
-# Product Analysis
-POST /api/v1/products/analyze
-GET  /api/v1/products/{product_id}/analysis
-
-# Brand Management
-POST /api/v1/brands/register
-GET  /api/v1/brands/{brand_id}/verification-status
-
-# Rule Management
-POST /api/v1/rules/
-GET  /api/v1/rules/active
-
-# Analytics
-GET  /api/v1/analytics/metrics
-GET  /api/v1/analytics/performance
-
-# Compliance (Enterprise)
-GET  /api/v1/compliance/overview
-POST /api/v1/compliance/reports/generate
-
-# zkSNARK Proofs (Enterprise)
-POST /api/v1/zkproof/generate
-GET  /api/v1/zkproof/{proof_id}/verify
-```
-
-## 🔄 Development Workflow
-
-### Running Tests
-```bash
-# Run all tests
-pytest
-
-# Run with coverage
-pytest --cov=src/counterfeit_detection --cov-report=html
-
-# Run specific test categories
-pytest tests/agents/  # Agent tests
-pytest tests/api/     # API tests
-pytest tests/services/  # Service tests
-```
-
-### Code Quality
-```bash
-# Linting
-black src/ tests/
-isort src/ tests/
-flake8 src/ tests/
-
-# Type checking
-mypy src/counterfeit_detection
-```
-
-### Database Migrations
-```bash
-# Create new migration
-alembic revision --autogenerate -m "Description of changes"
-
-# Apply migrations
-alembic upgrade head
-
-# Rollback migration
-alembic downgrade -1
-```
-
-## 🏢 Enterprise Features
-
-### zkSNARK Cryptographic Verification
-
-The system supports enterprise-grade cryptographic verification using zkSNARK proofs:
-
-```python
-# Generate proof for product authenticity
-from counterfeit_detection.services import ZKProofService
-
-zkproof_service = ZKProofService()
-proof = await zkproof_service.generate_product_proof(
-    product_id="prod_123",
-    brand_id="brand_456",
-    metadata=product_metadata
-)
-
-# Verify proof
-verification = await zkproof_service.verify_proof(proof.id)
-assert verification.is_valid
-```
-
-### Compliance Reporting
-
-Generate regulatory compliance reports:
-
-```python
-from counterfeit_detection.services import AuditTrailService
-
-audit_service = AuditTrailService()
-report = await audit_service.generate_compliance_report(
-    period_start=datetime(2024, 1, 1),
-    period_end=datetime(2024, 12, 31),
-    report_type="regulatory"
-)
-```
-
-## 📊 Monitoring & Observability
-
-### Metrics Endpoints
-- Health check: `GET /health`
-- Metrics: `GET /metrics` (Prometheus format)
-- Agent status: `GET /api/v1/agents/status`
-
-### Performance Monitoring
-- Response time tracking
-- Agent performance metrics
-- Database query optimization
-- zkSNARK verification timing
-
-## 🔒 Security
-
-### Authentication & Authorization
-- JWT-based authentication
-- Role-based access control (RBAC)
-- API key management for external integrations
-
-### Data Protection
-- Encryption at rest and in transit
-- PII data anonymization
-- GDPR compliance features
-- Audit logging for all operations
-
-### Cryptographic Security
-- zkSNARK zero-knowledge proofs
-- Blockchain audit trail anchoring
-- Merkle tree integrity verification
-- Enterprise PKI integration
-
-## 🚀 Deployment
-
-### Digital Ocean Deployment (Recommended)
-
-#### App Platform
-```bash
-# Fastest deployment option
-# Uses .do/app.yaml configuration
-# Managed services with auto-scaling
-# Built-in SSL and monitoring
-# Cost: ~$25-50/month
-```
-
-#### Droplet Deployment
-```bash
-# Run the automated deployment script
-./deploy-to-do.sh
-
-# Manual deployment
-# 1. Create droplet (s-2vcpu-4gb)
-# 2. Setup Docker and dependencies
-# 3. Clone repository and build
-# 4. Configure firewall and SSL
-# Cost: ~$24/month
-```
-
-#### Access Your Deployed Application
-- 🌐 **Frontend**: `https://your-app.ondigitalocean.app/`
-- 📡 **API**: `https://your-app.ondigitalocean.app/api/`
-- 📚 **API Docs**: `https://your-app.ondigitalocean.app/api/docs`
-- 🔗 **Hedera Service**: `https://your-app.ondigitalocean.app/hedera/`
-
-### Alternative Deployments
-
-#### Docker Deployment
-```bash
-# Production deployment
-docker-compose -f docker-compose.prod.yml up -d
-
-# Scale API instances
-docker-compose up -d --scale api=3
-```
-
-#### Kubernetes Deployment
-```bash
-# Deploy to Kubernetes
-kubectl apply -f k8s/
-
-# Check deployment status
-kubectl get pods -l app=counterfeit-detection
-```
-
-## 📈 Performance & Scaling
-
-### Performance Benchmarks
-- **API Response Time**: < 200ms (95th percentile)
-- **Product Analysis**: < 2 seconds average
-- **zkSNARK Verification**: < 500ms with caching
-- **Throughput**: 1000+ requests/second
-
-### Scaling Strategies
-- Horizontal API scaling
-- Database read replicas
-- Redis clustering
-- CDN for static assets
-- Load balancing with health checks
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
-
-### Development Setup
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Run the test suite
-6. Submit a pull request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🆘 Support
-
-### Documentation
-- [API Documentation](docs/api-documentation.md)
-- [Deployment Guide](docs/deployment-guide.md)
-- [Enterprise Setup](docs/enterprise-setup.md)
-- [Troubleshooting](docs/troubleshooting.md)
+MIT — see [LICENSE](LICENSE).
 
 ---
 
-**Built with ❤️ using modern AI and cryptographic technologies**
+**Built for the Hedera ecosystem** — every verdict one click from independent verification on [HashScan](https://hashscan.io/testnet).
